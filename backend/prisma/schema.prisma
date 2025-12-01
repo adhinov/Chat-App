@@ -1,0 +1,67 @@
+// ---------- PROVIDER ----------
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------- USER AUTH ----------
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  username   String
+  phone      String?
+  password   String
+  role       Role      @default(USER)
+  createdAt  DateTime  @default(now())
+  lastLogin  DateTime?
+
+  messages   Message[]
+  files      FileUpload[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ---------- CHAT ROOM ----------
+model ChatRoom {
+  id        Int       @id @default(autoincrement())
+  name      String
+  createdAt DateTime  @default(now())
+
+  messages  Message[]
+}
+
+// ---------- MESSAGE ----------
+model Message {
+  id         Int        @id @default(autoincrement())
+  text       String?
+  fileUrl    String?
+  fileType   String?    // image/png, application/pdf etc
+  createdAt  DateTime   @default(now())
+
+  // RELATIONS
+  senderId   Int
+  roomId     Int
+
+  sender     User       @relation(fields: [senderId], references: [id])
+  room       ChatRoom   @relation(fields: [roomId], references: [id])
+}
+
+// ---------- FILE UPLOAD ----------
+model FileUpload {
+  id         Int       @id @default(autoincrement())
+  url        String
+  fileName   String
+  fileType   String?
+  size       Int?
+  createdAt  DateTime  @default(now())
+
+  uploadedBy Int
+  user       User      @relation(fields: [uploadedBy], references: [id])
+}
