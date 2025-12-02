@@ -9,27 +9,22 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 9002;
 
-// Allowed origins (fallback jika env kosong)
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
-  : ["http://localhost:3000"];
-
-// ====== CORS PALING SIMPLE & STABIL ======
+// ========================================
+// CORS PALING SIMPLE & PALING ANTI ERROR
+// ========================================
 app.use(
   cors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin) return callback(null, true); // Postman, curl, mobile app
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("CORS blocked for origin: " + origin));
-    },
+    origin: "https://chat-app-five-xi-63.vercel.app", // FRONTEND kamu fix
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
+// Tambahan fix untuk preflight OPTIONS
+app.options("*", cors());
+
+// ========================================
 app.use(express.json());
 
 // ====== CONNECT DATABASE ======
@@ -57,9 +52,9 @@ async function ensureAdminUser() {
         },
       });
 
-      console.log("✓ Default admin created successfully!");
+      console.log("✓ Default admin created!");
     } else {
-      console.log("✓ Admin already exists. Skipping creation.");
+      console.log("✓ Admin already exists.");
     }
   } catch (error) {
     console.error("Failed to ensure admin user:", error);
