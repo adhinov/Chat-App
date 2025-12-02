@@ -1,29 +1,33 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { connectDB, prisma } from './config/database'; // pastikan prisma diexport dari sini
+import { connectDB, prisma } from './config/database';
 import bcrypt from 'bcryptjs';
 
-// Load environment variables
 dotenv.config();
 
-// Initialize express app
 const app = express();
 const port = process.env.PORT || 9002;
+
+// Allowed origins
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
+  : ["http://localhost:3000"];
 
 // Middleware
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000"],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
+app.options("*", cors());
 app.use(express.json());
 
-// Connect to database
+// Connect database
 connectDB();
 
-// 🔥 AUTO CREATE DEFAULT ADMIN
+// Auto create admin
 async function ensureAdminUser() {
   try {
     const adminEmail = 'admin@example.com';
@@ -41,10 +45,9 @@ async function ensureAdminUser() {
           email: adminEmail,
           phone: '0',
           password: hashedPassword,
-          role: 'ADMIN', // FIX
+          role: 'ADMIN',
         },
       });
-
 
       console.log('✓ Default admin created successfully!');
     } else {
@@ -55,23 +58,19 @@ async function ensureAdminUser() {
   }
 }
 
-// Jalankan setelah DB connect
 ensureAdminUser();
 
-// Import routes
+// Routes
 import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Basic route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Chat App API' });
 });
 
-// Start server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
