@@ -1,5 +1,5 @@
 import express from "express";
-import cors, { CorsOptions } from "cors";
+import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB, prisma } from "./config/database";
 import bcrypt from "bcryptjs";
@@ -9,41 +9,33 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 9002;
 
-// Allowed origins
+// Allowed origins (fallback jika env kosong)
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
   : ["http://localhost:3000"];
 
-// CORS OPTIONS (SIMPLE, STABLE)
-const corsOptions: CorsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, postman)
-    if (!origin) return callback(null, true);
+// ====== CORS PALING SIMPLE & STABIL ======
+app.use(
+  cors({
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true); // Postman, curl, mobile app
 
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
 
-    return callback(new Error("CORS blocked for origin: " + origin));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
-
-// Apply CORS
-app.use(cors(corsOptions));
-
-// Express 5 no longer needs/accepts app.options("*")
-// Optional: handle OPTIONS for all routes
-app.options("*", cors(corsOptions));
+      return callback(new Error("CORS blocked for origin: " + origin));
+    },
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
-// Connect DB
+// ====== CONNECT DATABASE ======
 connectDB();
 
-// AUTO CREATE ADMIN
+// ====== AUTO CREATE ADMIN ======
 async function ensureAdminUser() {
   try {
     const adminEmail = "admin@example.com";
@@ -76,19 +68,19 @@ async function ensureAdminUser() {
 
 ensureAdminUser();
 
-// Routes
+// ====== ROUTES ======
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 
-// Root route
+// ====== ROOT ROUTE ======
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to Chat App API" });
 });
 
-// Start
+// ====== START SERVER ======
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
