@@ -21,7 +21,12 @@ app.use(
     credentials: true,
   })
 );
-app.options("*", cors());
+
+// FIX Express 5: remove or replace wildcard
+// ❌ app.options("*", cors());
+// ✅ Option 1: enable OPTIONS for all routes
+app.options(/.*/, cors());
+
 app.use(express.json());
 
 // Connect database
