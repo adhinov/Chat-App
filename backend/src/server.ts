@@ -10,19 +10,19 @@ const app = express();
 const port = process.env.PORT || 9002;
 
 // ========================================
-// CORS PALING SIMPLE & PALING ANTI ERROR
+// CORS PALING SIMPLE & STABIL
 // ========================================
 app.use(
   cors({
-    origin: "https://chat-app-five-xi-63.vercel.app", // FRONTEND kamu fix
+    origin: "https://chat-app-five-xi-63.vercel.app", // frontend
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Tambahan fix untuk preflight OPTIONS
-app.options("*", cors());
+// FIX KOMPATIBILITAS EXPRESS 5 → gunakan "/*" bukan "*"
+app.options("/*", cors());
 
 // ========================================
 app.use(express.json());
