@@ -10,21 +10,19 @@ const app = express();
 const port = process.env.PORT || 9002;
 
 // ========================================
-// CORS PALING SIMPLE & 100% ANTI ERROR
+// CORS PALING SIMPLE & STABIL
 // ========================================
-const allowedOrigin = "https://chat-app-five-xi-63.vercel.app";
+app.use(
+  cors({
+    origin: "https://chat-app-five-xi-63.vercel.app", // frontend
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-const corsOptions = {
-  origin: allowedOrigin,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
-
-app.use(cors(corsOptions));
-
-// FIX: Preflight OPTIONS — tanpa wildcard bermasalah
-app.options("*", cors(corsOptions));
+// FIX preflight OPTIONS (Express v5)
+app.options("/**", cors());
 
 // ========================================
 app.use(express.json());
@@ -75,6 +73,11 @@ app.use("/api/admin", adminRoutes);
 // ====== ROOT ROUTE ======
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to Chat App API" });
+});
+
+// ❗ FIX wildcard → gunakan regex, bukan "*"
+app.get(/.*/, (req, res) => {
+  res.status(404).json({ message: "Not Found" });
 });
 
 // ====== START SERVER ======
