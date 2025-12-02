@@ -9,30 +9,42 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 9002;
 
-// Allowed origins
+// Allowed origins (from Railway ENV)
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
   : ["http://localhost:3000"];
 
-// Middleware
+// --------------------
+// CORS CONFIG (FIX ✔)
+// --------------------
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // allow server-to-server / mobile clients
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS: " + origin));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 
-// FIX Express 5: remove or replace wildcard
-// ❌ app.options("*", cors());
-// ✅ Option 1: enable OPTIONS for all routes
-app.options(/.*/, cors());
+// Express 5 — FIX wildcard OPTIONS
+app.options("*", cors());
 
 app.use(express.json());
 
 // Connect database
 connectDB();
 
-// Auto create admin
+// ---------------------------
+// Auto-create default admin
+// ---------------------------
 async function ensureAdminUser() {
   try {
     const adminEmail = 'admin@example.com';
@@ -65,17 +77,21 @@ async function ensureAdminUser() {
 
 ensureAdminUser();
 
+// --------------------
 // Routes
+// --------------------
 import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Root route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Chat App API' });
 });
 
+// Start server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
