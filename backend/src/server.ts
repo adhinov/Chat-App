@@ -21,8 +21,8 @@ app.use(
   })
 );
 
-// FIX preflight OPTIONS (Express v5)
-app.options("/**", cors());
+// FIX preflight OPTIONS (Express v5) — gunakan "*"
+app.options("*", cors());
 
 // ========================================
 app.use(express.json());
@@ -75,7 +75,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to Chat App API" });
 });
 
-// ❗ FIX wildcard → gunakan regex, bukan "*"
+// ====== 404 FALLBACK (AMAN) ======
 app.get(/.*/, (req, res) => {
   res.status(404).json({ message: "Not Found" });
 });
