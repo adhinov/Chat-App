@@ -1,86 +1,92 @@
+// src/server.ts
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { connectDB, prisma } from "./config/database";
-import bcrypt from "bcryptjs";
+import http from "http";
+import { Server as SocketIOServer, Socket } from "socket.io";
+import authRoutes from "./routes/auth.routes";
+import adminRoutes from "./routes/admin.routes";
+// import { connectDB } from "./config/database"; // aktifkan kalau sudah ada
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 9002;
+const server = http.createServer(app);
 
-// ========================================
-// CORS PALING SIMPLE & STABIL
-// ========================================
+// ================================
+// PARSE CORS MULTI-ORIGIN
+// ================================
+const allowedOrigins: string[] = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+  : [];
+
+console.log("Allowed origins:", allowedOrigins);
+
+// ================================
+// CORS CONFIG
+// ================================
 app.use(
   cors({
-    origin: "https://chat-app-five-xi-63.vercel.app", // frontend
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// FIX preflight OPTIONS (Express v5) — gunakan "*"
-app.options("*", cors());
-
-// ========================================
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ====== CONNECT DATABASE ======
-connectDB();
+// ================================
+// CONNECT DATABASE (Neon / Prisma)
+// ================================
+// connectDB();
 
-// ====== AUTO CREATE ADMIN ======
-async function ensureAdminUser() {
-  try {
-    const adminEmail = "admin@example.com";
+// ================================
+// SOCKET.IO
+// ================================
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
 
-    const existingAdmin = await prisma.user.findUnique({
-      where: { email: adminEmail },
-    });
+io.on("connection", (socket: Socket) => {
+  console.log("Socket connected:", socket.id);
 
-    if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash("admin123", 10);
+  socket.on("send_message", (data) => {
+    io.emit("receive_message", data);
+  });
 
-      await prisma.user.create({
-        data: {
-          username: "admin",
-          email: adminEmail,
-          phone: "0",
-          password: hashedPassword,
-          role: "ADMIN",
-        },
-      });
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected:", socket.id);
+  });
+});
 
-      console.log("✓ Default admin created!");
-    } else {
-      console.log("✓ Admin already exists.");
-    }
-  } catch (error) {
-    console.error("Failed to ensure admin user:", error);
-  }
-}
-
-ensureAdminUser();
-
-// ====== ROUTES ======
-import authRoutes from "./routes/auth.routes";
-import adminRoutes from "./routes/admin.routes";
-
+// ================================
+// ROUTES
+// ================================
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 
-// ====== ROOT ROUTE ======
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Chat App API" });
+  res.json({ message: "Backend Chat-App running..." });
 });
 
-// ====== 404 FALLBACK (AMAN) ======
-app.get(/.*/, (req, res) => {
+// SAFE 404 HANDLER
+app.all(/.*/, (req, res) => {
   res.status(404).json({ message: "Not Found" });
 });
 
-// ====== START SERVER ======
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+// ================================
+// START SERVER
+// ================================
+const PORT = process.env.PORT || 9002;
+server.listen(PORT, () =>
+  console.log(`Server listening on port ${PORT}`)
+);
