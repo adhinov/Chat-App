@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { jwtDecode } from 'jwt-decode';
 
 interface User {
   id: number;
@@ -17,13 +18,21 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastLogin, setLastLogin] = useState<string>('');
+  const [isClient, setIsClient] = useState(false);
+
   const router = useRouter();
 
-  // 🔥 Auto fallback prod & dev
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9002';
 
+  // Fix SSR localStorage issue
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/');
@@ -31,41 +40,33 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload: any = jwtDecode(token);
 
       if (payload.role?.toUpperCase() !== 'ADMIN') {
         router.push('/dashboard');
         return;
       }
 
-      // Set waktu login lokal
       const now = new Date();
-      setLastLogin(
-        now.toLocaleString('id-ID', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZoneName: 'short',
-        })
-      );
+      setLastLogin(now.toLocaleString('id-ID'));
 
       fetchUsers();
     } catch (error) {
-      console.error('Error parsing token:', error);
+      console.error('Token decode error:', error);
       router.push('/');
     }
-  }, [router]);
+  }, [isClient, router]);
 
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
 
       const response = await fetch(`${API_URL}/api/admin/users`, {
+        method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         cache: 'no-store',
       });
 
@@ -92,10 +93,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-300 py-6 px-4 flex justify-center items-start">
 
-      {/* Container Card */}
       <div className="w-full max-w-5xl bg-white rounded-lg shadow-xl overflow-hidden border border-gray-300">
 
-        {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-50">
           <div>
             <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
@@ -114,10 +113,8 @@ export default function AdminDashboardPage() {
           </Button>
         </div>
 
-        {/* Body */}
         <div className="p-4">
 
-          {/* Search */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
             <h2 className="text-base font-semibold text-gray-700">
               List Users{' '}
@@ -130,7 +127,7 @@ export default function AdminDashboardPage() {
               <input
                 type="text"
                 placeholder="Cari user..."
-                className="px-3 py-1.5 border border-gray-300 rounded text-sm w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="px-3 py-1.5 border border-gray-300 rounded text-sm w-full sm:w-64"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -144,7 +141,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="border border-gray-200 rounded-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -182,13 +178,7 @@ export default function AdminDashboardPage() {
                           </span>
                         </td>
                         <td className="px-3 py-1 text-gray-500 text-xs whitespace-nowrap">
-                          {new Date(user.createdAt).toLocaleString('id-ID', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {new Date(user.createdAt).toLocaleString('id-ID')}
                         </td>
                         <td className="px-3 py-1 text-gray-600 whitespace-nowrap">
                           {user.phone || '-'}
