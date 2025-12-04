@@ -90,7 +90,7 @@ export function LoginForm() {
         if (userRole === 'admin' || userRole === 'ADMIN') {
           router.push('/admin-dashboard');
         } else {
-          router.push('/dashboard');
+          router.push('/chat');
         }
       }
     } catch (err: any) {
