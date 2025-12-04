@@ -3,9 +3,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import io, { Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
-
-// Chat page for Next.js App Router. Put this file at `src/app/chat/page.tsx`.
-// Depends on: socket.io-client installed, TailwindCSS configured.
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 type Message = {
   id?: string;
@@ -29,19 +32,20 @@ export default function ChatPage() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [username, setUsername] = useState<string>("");
+
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const messagesRef = useRef<HTMLDivElement | null>(null);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // API / Socket URL - fallback to origin
   const API_URL =
     typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL
       ? process.env.NEXT_PUBLIC_API_URL
-      : (typeof window !== "undefined" ? window.location.origin : "http://localhost:9002");
+      : typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:9002";
 
   useEffect(() => {
-    // auth guard: read token from localStorage
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const payload = decodeToken(token);
     if (!payload) {
@@ -49,11 +53,9 @@ export default function ChatPage() {
       return;
     }
 
-    // set username from token if present, fallback to "User"
     const name = payload.username || payload.name || payload.email || "User";
     setUsername(name);
 
-    // connect socket
     const s = io(API_URL, {
       path: "/socket.io",
       transports: ["websocket"],
@@ -64,9 +66,10 @@ export default function ChatPage() {
 
     s.on("connect", () => {
       setConnected(true);
-      // announce join
+
+      // Join announcement
       s.emit("send_message", {
-        sender: name,
+        sender: "System",
         message: `${name} joined the chat`,
         createdAt: new Date().toISOString(),
       });
@@ -74,15 +77,12 @@ export default function ChatPage() {
 
     s.on("receive_message", (data: Message) => {
       setMessages((prev) => [...prev, data]);
-      // scroll to bottom
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 30);
     });
 
-    s.on("disconnect", () => {
-      setConnected(false);
-    });
+    s.on("disconnect", () => setConnected(false));
 
-    // preload welcome message
+    // welcome message
     setMessages([
       {
         sender: "System",
@@ -93,27 +93,22 @@ export default function ChatPage() {
 
     return () => {
       s.disconnect();
-      setSocket(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleSend() {
-    if (!input.trim()) return;
+    if (!input.trim() || !socket) return;
+
     const msg: Message = {
       sender: username,
       message: input.trim(),
       createdAt: new Date().toISOString(),
     };
 
-    // optimistically render
-    setMessages((p) => [...p, msg]);
-    setInput("");
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only send to server, do not optimistically render (to prevent duplicates)
+    socket.emit("send_message", msg);
 
-    if (socket) {
-      socket.emit("send_message", msg);
-    }
+    setInput("");
   }
 
   function handleLogout() {
@@ -122,33 +117,64 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1724] text-white flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-[#1f2937] bg-[#0b1220]">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center font-bold">{username?.[0]?.toUpperCase() || "U"}</div>
-          <div>
-            <div className="font-semibold">{username}</div>
-            <div className="text-xs text-gray-300">Online {connected ? "•" : "(disconnected)"}</div>
+    <div className="min-h-screen bg-[#0f1724] text-white flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-[#101827] rounded-xl shadow-xl flex flex-col h-[85vh]">
+
+        {/* Chat Header (inside card) */}
+        <div className="flex items-center justify-between p-4 border-b border-[#1f2937]">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center font-bold">
+              {username?.[0]?.toUpperCase() || "U"}
+            </div>
+            <div>
+              <div className="font-semibold">{username}</div>
+              <div className="text-xs text-gray-300">Online •</div>
+            </div>
           </div>
+
+          {/* Dropdown Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="text-xl px-3 py-1 rounded hover:bg-[#1f2937]">
+              ⚙
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-[#0f1724] text-white border border-[#23303b]">
+              <DropdownMenuItem
+                className="hover:bg-[#1f2937] cursor-pointer"
+                onClick={() => router.push("/profile")}
+              >
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="hover:bg-red-600 cursor-pointer"
+                onClick={handleLogout}
+              >
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button onClick={() => {}} className="px-3 py-1 rounded bg-transparent border border-[#23303b] text-sm">Profile</button>
-          <button onClick={handleLogout} className="px-3 py-1 rounded bg-red-600 text-sm">Logout</button>
-        </div>
-      </header>
-
-      {/* Chat area */}
-      <main className="flex-1 p-6 flex flex-col max-w-4xl mx-auto w-full">
-        <div className="flex-1 bg-[#101827] rounded-lg shadow-inner p-4 overflow-y-auto" ref={messagesRef}>
+        {/* Chat Messages */}
+        <div className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-3">
             {messages.map((m, idx) => (
               <div key={idx} className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[70%] px-4 py-2 rounded-lg ${m.sender === username ? "bg-[#2a4365] text-white" : "bg-[#1f2937] text-gray-100"}`}>
-                  <div className="text-xs text-gray-300 font-semibold">{m.sender === username ? "You" : m.sender}</div>
+                <div
+                  className={`max-w-[70%] px-4 py-2 rounded-lg ${
+                    m.sender === username
+                      ? "bg-[#2a4365] text-white"
+                      : m.sender === "System"
+                      ? "bg-[#374151] text-gray-200"
+                      : "bg-[#1f2937] text-gray-100"
+                  }`}
+                >
+                  <div className="text-xs text-gray-300 font-semibold">
+                    {m.sender === username ? "You" : m.sender}
+                  </div>
                   <div className="mt-1 text-sm">{m.message}</div>
-                  <div className="mt-1 text-[10px] text-gray-500">{new Date(m.createdAt).toLocaleTimeString()}</div>
+                  <div className="mt-1 text-[10px] text-gray-500">
+                    {new Date(m.createdAt).toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
             ))}
@@ -156,20 +182,26 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Composer */}
-        <div className="mt-4 flex items-center gap-3">
-          <button className="h-10 w-10 rounded-full bg-[#0f1724] border border-[#23303b]">+</button>
+        {/* Input Box */}
+        <div className="p-4 flex items-center gap-3 border-t border-[#1f2937]">
+          <button className="h-10 w-10 rounded-full bg-[#0f1724] border border-[#23303b]">
+            +
+          </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type your message here..."
             className="flex-1 h-12 px-4 rounded-full bg-[#071127] border border-[#23303b] outline-none"
           />
-          <button onClick={handleSend} className="h-10 px-4 rounded-full bg-blue-500 text-white">Send</button>
+          <button
+            onClick={handleSend}
+            className="h-10 px-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            Send
+          </button>
         </div>
-      </main>
-
+      </div>
     </div>
   );
 }
