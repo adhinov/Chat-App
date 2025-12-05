@@ -43,7 +43,6 @@ export function SignUpForm() {
     try {
       setIsSubmitting(true);
 
-      // AUTO API URL
       const API_URL =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -61,17 +60,21 @@ export function SignUpForm() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.message || "Something went wrong");
 
-      // Simpan token jika backend mengirim
-      if (data?.token) localStorage.setItem("token", data.token);
+      // simpan token
+      if (data?.token) {
+        localStorage.setItem("token", data.token);
+      }
 
       toast({
         title: "Success",
         description: "Account created — redirecting...",
       });
 
+      // 🔥 langsung ke CHAT ROOM
       setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1000);
+        window.location.href = "/chat";
+      }, 800);
+
     } catch (err: any) {
       toast({
         title: "Error",
@@ -82,7 +85,6 @@ export function SignUpForm() {
       setIsSubmitting(false);
     }
   }
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
