@@ -35,6 +35,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
 
   const API_URL =
     typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL
@@ -86,6 +87,7 @@ export default function ChatPage() {
     return () => {
       s.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleSend() {
@@ -107,10 +109,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-[#0f1724] text-white">
-
-      {/* HEADER STICKY */}
-      <div className="flex items-center justify-between p-4 border-b border-[#1f2937] bg-[#101827] sticky top-0 z-10">
+    // prevent horizontal scroll on mobile
+    <div className="h-[100dvh] flex flex-col bg-[#0f1724] text-white overflow-hidden">
+      {/* header sticky inside card area */}
+      <div className="flex items-center justify-between p-4 border-b border-[#1f2937] bg-[#101827] sticky top-0 z-20">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center font-bold">
             {username?.[0]?.toUpperCase()}
@@ -142,34 +144,40 @@ export default function ChatPage() {
         </DropdownMenu>
       </div>
 
-      {/* MESSAGES SCROLL AREA */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {messages.map((m, idx) => (
-          <div key={idx} className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[80%] px-4 py-2 rounded-xl ${
-                m.sender === username
-                  ? "bg-[#2a4365] text-white"
-                  : m.sender === "System"
-                  ? "bg-[#374151] text-gray-200"
-                  : "bg-[#1f2937] text-gray-100"
-              }`}
-            >
-              <div className="text-xs text-gray-300 font-semibold">
-                {m.sender === username ? "You" : m.sender}
-              </div>
-              <div className="mt-1 text-sm">{m.message}</div>
-              <div className="mt-1 text-[10px] text-gray-500">
-                {new Date(m.createdAt).toLocaleTimeString()}
+      {/* messages: allow vertical scroll only, prevent horizontal scroll */}
+      <div
+        ref={messagesRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-2 sm:px-4 py-3"
+        style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+      >
+        <div className="space-y-3">
+          {messages.map((m, idx) => (
+            <div key={idx} className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`px-4 py-2 rounded-xl break-words ${
+                  m.sender === username
+                    ? "bg-[#2a4365] text-white max-w-[85%] sm:max-w-[70%]"
+                    : m.sender === "System"
+                    ? "bg-[#374151] text-gray-200 max-w-[85%] sm:max-w-[70%]"
+                    : "bg-[#1f2937] text-gray-100 max-w-[85%] sm:max-w-[70%]"
+                }`}
+              >
+                <div className="text-xs text-gray-300 font-semibold">
+                  {m.sender === username ? "You" : m.sender}
+                </div>
+                <div className="mt-1 text-sm whitespace-pre-wrap">{m.message}</div>
+                <div className="mt-1 text-[10px] text-gray-500">
+                  {new Date(m.createdAt).toLocaleTimeString()}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        <div ref={scrollRef} />
+          ))}
+          <div ref={scrollRef} />
+        </div>
       </div>
 
-      {/* INPUT BOX STICKY (BOTTOM) */}
-      <div className="p-3 flex items-center gap-3 border-t border-[#1f2937] bg-[#101827] sticky bottom-0 z-10">
+      {/* input sticky bottom */}
+      <div className="p-3 flex items-center gap-3 border-t border-[#1f2937] bg-[#101827] sticky bottom-0 z-20">
         <button className="h-10 w-10 rounded-full bg-[#0f1724] border border-[#23303b]">+</button>
 
         <input
