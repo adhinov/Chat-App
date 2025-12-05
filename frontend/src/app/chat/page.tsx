@@ -112,9 +112,9 @@ export default function ChatPage() {
 
   return (
     <div className="h-[100dvh] flex items-center justify-center bg-[#0f1724] text-white overflow-hidden">
-      {/* CARD WRAPPER (middle on laptop, full on mobile) */}
+      {/* CARD WRAPPER */}
       <div className="w-full h-full sm:max-w-xl sm:h-[90vh] bg-[#101827] sm:rounded-xl flex flex-col overflow-hidden border border-[#1f2937] shadow-xl">
-        
+
         {/* HEADER */}
         <div className="flex items-center justify-between p-4 border-b border-[#1f2937] bg-[#101827]">
           <div className="flex items-center gap-3">
@@ -180,27 +180,28 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* INPUT AREA */}
-        <div className="p-3 flex items-center gap-3 border-t border-[#1f2937] bg-[#0f1724]">
-          
-          {/* BUTTON + tanpa lingkaran */}
-          <button className="h-10 w-10 bg-[#0f1724] border border-[#23303b] rounded-md text-xl">
+        {/* INPUT BAR */}
+        <div className="p-3 flex items-center gap-3 border-t border-[#1f2937] bg-[#0f1724] pb-[env(safe-area-inset-bottom)]">
+
+          {/* + BUTTON */}
+          <button className="h-11 w-11 bg-[#0f1724] border border-[#23303b] rounded-lg text-xl flex items-center justify-center">
             +
           </button>
 
+          {/* INPUT */}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type your message..."
-            className="flex-1 h-11 px-4 rounded-lg bg-[#071127] border border-[#23303b] outline-none text-sm"
+            className="flex-1 h-11 px-4 rounded-lg bg-[#071127] border border-[#23303b] outline-none text-sm placeholder-gray-400"
           />
 
+          {/* SEND BUTTON */}
           <button
             onClick={handleSend}
             aria-label="Send message"
-            title="Send"
-            className="h-11 w-11 flex items-center justify-center rounded-full bg-[#eb5d2d] hover:bg-[#d9530a] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#1EBE5A] transition-transform active:scale-95"
+            className="h-11 w-11 rounded-full bg-[#eb5d2d] hover:bg-[#d9530a] flex items-center justify-center active:scale-95 transition"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -212,10 +213,9 @@ export default function ChatPage() {
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
-              aria-hidden="true"
             >
               <path d="M22 2L11 13" />
-              <path d="M22 2l-7 20  -4-9-9-4 20-7z" />
+              <path d="M22 2l-7 20-4-9-9-4 20-7z" />
             </svg>
           </button>
         </div>
