@@ -72,8 +72,13 @@ export default function ChatPage() {
     });
 
     s.on("receive_message", (data: Message) => {
+      console.log("📩 RECEIVED MESSAGE:", data);   // <---- Tambahkan ini
+
       setMessages((prev) => [...prev, data]);
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 30);
+
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 30);
     });
 
     setMessages([
