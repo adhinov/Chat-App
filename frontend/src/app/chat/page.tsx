@@ -29,22 +29,12 @@ function decodeToken(token: string | null) {
 export default function ChatPage() {
   const router = useRouter();
 
-  // SOCKET
   const [socket, setSocket] = useState<Socket | null>(null);
-
-  // USER NAME
   const [username, setUsername] = useState<string>("");
-
-  // TEXT INPUT
   const [message, setMessage] = useState("");
-
-  // ALL MESSAGES
   const [messages, setMessages] = useState<Message[]>([]);
 
-  // SCROLL REF  
   const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  // FILE REF
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const API_URL =
@@ -54,7 +44,6 @@ export default function ChatPage() {
       ? window.location.origin
       : "http://localhost:9002";
 
-  // FILE UPLOAD HANDLER
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -79,7 +68,6 @@ export default function ChatPage() {
 
     setSocket(s);
 
-    // LISTEN MESSAGE
     s.on("receive_message", (data: Message) => {
       setMessages((prev) => [...prev, data]);
       setTimeout(
@@ -88,7 +76,6 @@ export default function ChatPage() {
       );
     });
 
-    // FIRST SYSTEM WELCOME MESSAGE
     setMessages([
       {
         sender: "System",
@@ -103,7 +90,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  // SEND MESSAGE
   function handleSend() {
     if (!message.trim() || !socket) return;
 
@@ -113,7 +99,7 @@ export default function ChatPage() {
       createdAt: new Date().toISOString(),
     });
 
-    setMessage("");
+    setMessage(""); 
   }
 
   function handleLogout() {
@@ -193,10 +179,10 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* INPUT AREA */}
-        <div className="w-full px-3 py-2 bg-[#0a0f24] border-t border-white/5 flex items-center gap-3">
+        {/* INPUT AREA - FIX WHATSAPP STYLE */}
+        <div className="w-full px-3 py-3 bg-[#0a0f24] border-t border-white/5 flex items-center gap-3">
 
-          {/* Hidden file input */}
+          {/* HIDDEN FILE INPUT */}
           <input
             type="file"
             ref={fileInputRef}
@@ -204,27 +190,32 @@ export default function ChatPage() {
             onChange={handleFileUpload}
           />
 
-          {/* Plus button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="h-11 w-11 flex items-center justify-center rounded-full bg-[#11172c] text-white/80 hover:bg-[#1a233d]"
-          >
-            +
-          </button>
+          {/* WRAPPER (Plus + Input) */}
+          <div className="flex items-center bg-[#11172c] rounded-full px-3 flex-1 h-12">
 
-          {/* Message input */}
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-1 h-11 bg-[#11172c] text-white px-4 rounded-full outline-none placeholder-white/40"
-          />
+            {/* PLUS BUTTON (inside input box) */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-white/70 hover:text-white mr-2"
+            >
+              +
+            </button>
 
-          {/* Send button */}
+            {/* TEXT INPUT */}
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1 bg-transparent text-white px-2 outline-none text-[15px] placeholder-white/40"
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            />
+          </div>
+
+          {/* SEND BUTTON (PERFECT CIRCLE) */}
           <button
             onClick={handleSend}
-            className="h-11 w-11 flex items-center justify-center rounded-full bg-[#ff6b35] hover:bg-[#e85b2b] text-white"
+            className="h-12 w-12 flex items-center justify-center rounded-full bg-[#ff6b35] hover:bg-[#e85b2b] text-white active:scale-95 transition"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
