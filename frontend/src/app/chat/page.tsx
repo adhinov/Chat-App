@@ -10,13 +10,15 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+// ================== TYPES ==================
 type Message = {
-  id?: string;
+  id?: number;
   sender: string;
   message: string;
   createdAt: string;
 };
 
+// JWT decode
 function decodeToken(token: string | null) {
   if (!token) return null;
   try {
@@ -31,12 +33,14 @@ export default function ChatPage() {
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [username, setUsername] = useState<string>("");
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // API URL
   const API_URL =
     typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL
       ? process.env.NEXT_PUBLIC_API_URL
@@ -44,12 +48,7 @@ export default function ChatPage() {
       ? window.location.origin
       : "http://localhost:9002";
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    console.log("Selected file:", file);
-  }
-
+  // ================== LOAD USER + SOCKET INIT ==================
   useEffect(() => {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -57,10 +56,12 @@ export default function ChatPage() {
 
     if (!payload) return router.push("/");
 
+    // username
     const name =
       payload.username || payload.name || payload.email || "User";
     setUsername(name);
 
+    // socket connect
     const s = io(API_URL, {
       transports: ["websocket"],
       withCredentials: true,
@@ -68,50 +69,91 @@ export default function ChatPage() {
 
     setSocket(s);
 
+    // menerima pesan real-time
     s.on("receive_message", (data: Message) => {
       setMessages((prev) => [...prev, data]);
-      setTimeout(
-        () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
-        20
-      );
+
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 20);
     });
 
-    setMessages([
-      {
-        sender: "System",
-        message: `Hello ${name}! Welcome to the chat room.`,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    // fetch pesan pertama kali
+    fetchMessages();
 
     return () => {
       s.disconnect();
-      return undefined;
     };
   }, []);
 
-  function handleSend() {
-    if (!message.trim() || !socket) return;
+  // ================== FETCH ALL MESSAGES ==================
+  async function fetchMessages() {
+    try {
+      const res = await fetch(`${API_URL}/api/messages`);
+      const data = await res.json();
 
-    socket.emit("send_message", {
-      sender: username,
-      message,
-      createdAt: new Date().toISOString(),
-    });
+      setMessages(data);
 
-    setMessage(""); 
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    } catch (err) {
+      console.error("Fetch messages error:", err);
+    }
   }
 
+  // ================== SEND MESSAGE (POST + SOCKET) ==================
+  async function handleSend() {
+    if (!message.trim() || !socket) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return router.push("/");
+
+    try {
+      // STEP 1 → Simpan ke DB
+      const res = await fetch(`${API_URL}/api/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          sender: username,
+          message,
+        }),
+      });
+
+      const savedMessage: Message = await res.json();
+
+      // STEP 2 → Emit ke socket.io
+      socket.emit("send_message", savedMessage);
+
+      // STEP 3 → Kosongkan input
+      setMessage("");
+
+    } catch (err) {
+      console.error("Send message error:", err);
+    }
+  }
+
+  // ================== LOGOUT ==================
   function handleLogout() {
     localStorage.removeItem("token");
     router.push("/");
   }
 
+  // ================== FILE UPLOAD (BELUM DIPAKAI) ==================
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    console.log("Selected file:", file);
+  }
+
+  // ================== RENDER UI ==================
   return (
     <div className="h-[100dvh] w-full bg-[#0f1724] text-white flex flex-col overflow-hidden">
-
-      {/* CHAT CARD */}
-      <div className="flex flex-col w-full h-full sm:max-w-xl sm:mx-auto sm:h-[92vh] sm:mt-4 bg-[#101827] sm:rounded-xl border border-[#1f2937] shadow-xl overflow-hidden">
+      <div className="flex flex-col w-full h-full sm:max-w-xl sm:mx-auto sm:h-[92vh] sm:mt-4 
+                      bg-[#101827] sm:rounded-xl border border-[#1f2937] shadow-xl overflow-hidden">
 
         {/* HEADER */}
         <div className="flex items-center justify-between p-4 border-b border-[#1f2937] bg-[#101827]">
@@ -131,13 +173,14 @@ export default function ChatPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-[#0f1724] text-white border border-[#23303b]">
               <DropdownMenuItem
-                className="hover:bg-[#1f2937] cursor-pointer"
+                className="hover:bg-[#1f2937]"
                 onClick={() => router.push("/profile")}
               >
                 Profile
               </DropdownMenuItem>
+
               <DropdownMenuItem
-                className="hover:bg-red-600 cursor-pointer"
+                className="hover:bg-red-600"
                 onClick={handleLogout}
               >
                 Logout
@@ -152,23 +195,21 @@ export default function ChatPage() {
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`flex ${
-                  m.sender === username ? "justify-end" : "justify-start"
-                }`}
+                className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`px-4 py-2 rounded-xl max-w-[80%] break-words ${
                     m.sender === username
                       ? "bg-[#2a4365]"
-                      : m.sender === "System"
-                      ? "bg-[#374151]"
                       : "bg-[#1f2937]"
                   }`}
                 >
                   <div className="text-xs text-gray-300">
                     {m.sender === username ? "You" : m.sender}
                   </div>
+
                   <div className="mt-1 text-sm">{m.message}</div>
+
                   <div className="mt-1 text-[10px] text-gray-500">
                     {new Date(m.createdAt).toLocaleTimeString()}
                   </div>
@@ -179,10 +220,10 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* INPUT AREA - FIX WHATSAPP STYLE */}
+        {/* INPUT AREA */}
         <div className="w-full px-3 py-3 bg-[#0a0f24] border-t border-white/5 flex items-center gap-3">
 
-          {/* HIDDEN FILE INPUT */}
+          {/* hidden file input */}
           <input
             type="file"
             ref={fileInputRef}
@@ -190,10 +231,9 @@ export default function ChatPage() {
             onChange={handleFileUpload}
           />
 
-          {/* WRAPPER (Plus + Input) */}
+          {/* input wrapper */}
           <div className="flex items-center bg-[#11172c] rounded-full px-3 flex-1 h-12">
 
-            {/* PLUS BUTTON (inside input box) */}
             <button
               onClick={() => fileInputRef.current?.click()}
               className="text-white/70 hover:text-white mr-2"
@@ -212,7 +252,7 @@ export default function ChatPage() {
             />
           </div>
 
-          {/* SEND BUTTON (PERFECT CIRCLE) */}
+          {/* SEND BUTTON */}
           <button
             onClick={handleSend}
             className="h-12 w-12 flex items-center justify-center rounded-full bg-[#ff6b35] hover:bg-[#e85b2b] text-white active:scale-95 transition"
@@ -230,8 +270,8 @@ export default function ChatPage() {
               <path d="M22 2 15 22 11 13 2 9 22 2z"></path>
             </svg>
           </button>
-
         </div>
+
       </div>
     </div>
   );
