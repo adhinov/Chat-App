@@ -82,3 +82,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+html, body {
+  height: 100%;
+  background-color: #0f1724 !important;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: none;
+}
+
+body {
+  background: #0f1724 !important;
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+    background-color: #0f1724 !important;
+  }
+}
