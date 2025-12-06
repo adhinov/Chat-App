@@ -28,12 +28,24 @@ function decodeToken(token: string | null) {
 
 export default function ChatPage() {
   const router = useRouter();
+
+  // SOCKET
   const [socket, setSocket] = useState<Socket | null>(null);
+
+  // USER NAME
   const [username, setUsername] = useState<string>("");
-  const [input, setInput] = useState("");
+
+  // TEXT INPUT
+  const [message, setMessage] = useState("");
+
+  // ALL MESSAGES
   const [messages, setMessages] = useState<Message[]>([]);
 
+  // SCROLL REF  
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // FILE REF
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const API_URL =
     typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL
@@ -42,13 +54,22 @@ export default function ChatPage() {
       ? window.location.origin
       : "http://localhost:9002";
 
+  // FILE UPLOAD HANDLER
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    console.log("Selected file:", file);
+  }
+
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const payload = decodeToken(token);
 
     if (!payload) return router.push("/");
 
-    const name = payload.username || payload.name || payload.email || "User";
+    const name =
+      payload.username || payload.name || payload.email || "User";
     setUsername(name);
 
     const s = io(API_URL, {
@@ -58,11 +79,16 @@ export default function ChatPage() {
 
     setSocket(s);
 
+    // LISTEN MESSAGE
     s.on("receive_message", (data: Message) => {
       setMessages((prev) => [...prev, data]);
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 20);
+      setTimeout(
+        () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
+        20
+      );
     });
 
+    // FIRST SYSTEM WELCOME MESSAGE
     setMessages([
       {
         sender: "System",
@@ -77,16 +103,17 @@ export default function ChatPage() {
     };
   }, []);
 
+  // SEND MESSAGE
   function handleSend() {
-    if (!input.trim() || !socket) return;
+    if (!message.trim() || !socket) return;
 
     socket.emit("send_message", {
       sender: username,
-      message: input,
+      message,
       createdAt: new Date().toISOString(),
     });
 
-    setInput("");
+    setMessage("");
   }
 
   function handleLogout() {
@@ -97,7 +124,7 @@ export default function ChatPage() {
   return (
     <div className="h-[100dvh] w-full bg-[#0f1724] text-white flex flex-col overflow-hidden">
 
-      {/* CARD - NO CENTERING */}
+      {/* CHAT CARD */}
       <div className="flex flex-col w-full h-full sm:max-w-xl sm:mx-auto sm:h-[92vh] sm:mt-4 bg-[#101827] sm:rounded-xl border border-[#1f2937] shadow-xl overflow-hidden">
 
         {/* HEADER */}
@@ -137,7 +164,12 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <div className="space-y-3">
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}>
+              <div
+                key={i}
+                className={`flex ${
+                  m.sender === username ? "justify-end" : "justify-start"
+                }`}
+              >
                 <div
                   className={`px-4 py-2 rounded-xl max-w-[80%] break-words ${
                     m.sender === username
@@ -157,47 +189,57 @@ export default function ChatPage() {
                 </div>
               </div>
             ))}
-
             <div ref={scrollRef} />
           </div>
         </div>
 
-        {/* INPUT AREA — FIXED BOTTOM */}
-        <div className="p-3 flex items-center gap-3 border-t border-[#1f2937] bg-[#0f1724]">
+        {/* INPUT AREA */}
+        <div className="w-full px-3 py-2 bg-[#0a0f24] border-t border-white/5 flex items-center gap-3">
 
-          <button className="h-10 w-10 aspect-square bg-[#0f1724] border border-[#23303b] rounded-lg text-xl flex items-center justify-center">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+
+          {/* Plus button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="h-11 w-11 flex items-center justify-center rounded-full bg-[#11172c] text-white/80 hover:bg-[#1a233d]"
+          >
             +
           </button>
 
+          {/* Message input */}
           <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 h-11 px-4 rounded-lg bg-[#071127] border border-[#23303b] outline-none text-sm"
+            className="flex-1 h-11 bg-[#11172c] text-white px-4 rounded-full outline-none placeholder-white/40"
           />
 
-          {/* SEND BUTTON PERFECT CIRCLE */}
+          {/* Send button */}
           <button
             onClick={handleSend}
-            aria-label="Send"
-            className="h-11 w-11 aspect-square flex items-center justify-center rounded-full bg-[#eb5d2d] hover:bg-[#d9530a] active:scale-95 transition-all"
+            className="h-11 w-11 flex items-center justify-center rounded-full bg-[#ff6b35] hover:bg-[#e85b2b] text-white"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
+              width="22"
+              height="22"
               fill="none"
-              stroke="white"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              width="20"
-              height="20"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
             >
-              <path d="M22 2L11 13" />
-              <path d="M22 2l-7 20 -4-9 -9-4 20-7z" />
+              <path d="M22 2 11 13"></path>
+              <path d="M22 2 15 22 11 13 2 9 22 2z"></path>
             </svg>
           </button>
+
         </div>
       </div>
     </div>
