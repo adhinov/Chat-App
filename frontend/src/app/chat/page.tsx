@@ -33,6 +33,7 @@ export default function ChatPage() {
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [username, setUsername] = useState<string>("");
+  const [onlineCount, setOnlineCount] = useState<number>(1);
 
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -66,7 +67,7 @@ export default function ChatPage() {
 
     setSocket(s);
 
-    // REALTIME LISTENER
+    // LISTEN CHAT
     s.on("receive_message", (data: Message) => {
       setMessages((prev) => [...prev, data]);
 
@@ -75,10 +76,17 @@ export default function ChatPage() {
       }, 30);
     });
 
+    // LISTEN ONLINE COUNT
+    s.on("onlineCount", (count: number) => {
+      setOnlineCount(count);
+    });
+
     // Load pesan awal
     fetchMessages();
 
     return () => {
+      s.off("receive_message");
+      s.off("onlineCount");
       s.disconnect();
     };
   }, []);
@@ -89,7 +97,6 @@ export default function ChatPage() {
       const res = await fetch(`${API_URL}/api/messages`);
       const data = await res.json();
 
-      // NORMALISASI FIELD dari DB → frontend
       const normalized = data.map((m: any) => ({
         id: m.id,
         sender: m.sender,
@@ -130,7 +137,6 @@ export default function ChatPage() {
 
       const savedMessage = await res.json();
 
-      // Normalize created_at → createdAt
       const finalMessage: Message = {
         ...savedMessage,
         createdAt: savedMessage.created_at,
@@ -139,7 +145,6 @@ export default function ChatPage() {
       // Emit realtime
       socket.emit("send_message", finalMessage);
 
-      // Clear input
       setMessage("");
     } catch (err) {
       console.error("Send message error:", err);
@@ -152,7 +157,7 @@ export default function ChatPage() {
     router.push("/");
   }
 
-  // ================== FILE UPLOAD (BELUM DIPAKAI) ==================
+  // ================== FILE UPLOAD ==================
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -173,7 +178,9 @@ export default function ChatPage() {
             </div>
             <div>
               <div className="font-semibold">{username}</div>
-              <div className="text-xs text-gray-300">Online •</div>
+              <div className="text-xs text-gray-300">
+                Online • {onlineCount} User{onlineCount > 1 ? "s" : ""}
+              </div>
             </div>
           </div>
 
@@ -205,13 +212,13 @@ export default function ChatPage() {
             {messages.map((m) => (
               <div
                 key={m.id}
-                className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}
+                className={`flex ${
+                  m.sender === username ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
                   className={`px-4 py-2 rounded-xl max-w-[80%] break-words ${
-                    m.sender === username
-                      ? "bg-[#2a4365]"
-                      : "bg-[#1f2937]"
+                    m.sender === username ? "bg-[#2a4365]" : "bg-[#1f2937]"
                   }`}
                 >
                   <div className="text-xs text-gray-300">
@@ -235,7 +242,6 @@ export default function ChatPage() {
 
         {/* INPUT */}
         <div className="w-full px-3 py-3 bg-[#0a0f24] border-t border-white/5 flex items-center gap-3">
-
           <input
             type="file"
             ref={fileInputRef}

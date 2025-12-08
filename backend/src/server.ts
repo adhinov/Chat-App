@@ -7,7 +7,7 @@ import { Server as SocketIOServer, Socket } from "socket.io";
 
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
-import messageRoutes from "./routes/messageRoutes"; // 🔥 WAJIB ADA
+import messageRoutes from "./routes/messageRoutes"; 
 
 dotenv.config();
 
@@ -55,12 +55,18 @@ const io = new SocketIOServer(server, {
 io.on("connection", (socket: Socket) => {
   console.log("Socket connected:", socket.id);
 
+  // === Kirim jumlah online ke semua client ===
+  io.emit("onlineCount", io.engine.clientsCount);
+
+  // === Chat message event lama ===
   socket.on("send_message", (data) => {
     io.emit("receive_message", data);
   });
 
+  // === Disconnect ===
   socket.on("disconnect", () => {
     console.log("Socket disconnected:", socket.id);
+    io.emit("onlineCount", io.engine.clientsCount);
   });
 });
 
@@ -69,7 +75,7 @@ io.on("connection", (socket: Socket) => {
 // ================================
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/messages", messageRoutes); // 🔥 FIX PENTING
+app.use("/api/messages", messageRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Backend Chat-App running..." });
@@ -87,3 +93,5 @@ const PORT = process.env.PORT || 9002;
 server.listen(PORT, () =>
   console.log(`Server listening on port ${PORT}`)
 );
+
+export default app;
