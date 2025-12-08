@@ -7,7 +7,7 @@ import { Server as SocketIOServer, Socket } from "socket.io";
 
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
-import messageRoutes from "./routes/messageRoutes"; 
+import messageRoutes from "./routes/messageRoutes";
 
 dotenv.config();
 
@@ -52,21 +52,35 @@ const io = new SocketIOServer(server, {
   },
 });
 
+// 👇 MAP USER ONLINE
+const onlineUsers = new Map<string, string>(); 
+// key = socket.id, value = userId
+
 io.on("connection", (socket: Socket) => {
   console.log("Socket connected:", socket.id);
 
-  // === Kirim jumlah online ke semua client ===
-  io.emit("onlineCount", io.engine.clientsCount);
+  // Frontend akan mengirim userId setelah login
+  socket.on("user-online", (userId: string) => {
+    onlineUsers.set(socket.id, userId);
 
-  // === Chat message event lama ===
+    // kirim jumlah user online ke semua client
+    io.emit("onlineCount", onlineUsers.size);
+  });
+
+  // Chat message
   socket.on("send_message", (data) => {
     io.emit("receive_message", data);
   });
 
-  // === Disconnect ===
+  // Disconnect
   socket.on("disconnect", () => {
     console.log("Socket disconnected:", socket.id);
-    io.emit("onlineCount", io.engine.clientsCount);
+
+    // hapus user dari list online
+    onlineUsers.delete(socket.id);
+
+    // broadcast jumlah baru
+    io.emit("onlineCount", onlineUsers.size);
   });
 });
 
