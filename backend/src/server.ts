@@ -4,9 +4,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import http from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
+
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
-// import { connectDB } from "./config/database"; // aktifkan kalau sudah ada
+import messageRoutes from "./routes/messageRoutes"; // 🔥 WAJIB ADA
 
 dotenv.config();
 
@@ -42,11 +43,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ================================
-// CONNECT DATABASE (Neon / Prisma)
-// ================================
-// connectDB();
-
-// ================================
 // SOCKET.IO
 // ================================
 const io = new SocketIOServer(server, {
@@ -73,6 +69,7 @@ io.on("connection", (socket: Socket) => {
 // ================================
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/messages", messageRoutes); // 🔥 FIX PENTING
 
 app.get("/", (req, res) => {
   res.json({ message: "Backend Chat-App running..." });

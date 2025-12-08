@@ -18,7 +18,7 @@ type Message = {
   createdAt: string;
 };
 
-// JWT decode
+// ================== JWT DECODE ==================
 function decodeToken(token: string | null) {
   if (!token) return null;
   try {
@@ -40,7 +40,7 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // API URL
+  // ================== API URL ==================
   const API_URL =
     typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL
       ? process.env.NEXT_PUBLIC_API_URL
@@ -48,20 +48,17 @@ export default function ChatPage() {
       ? window.location.origin
       : "http://localhost:9002";
 
-  // ================== LOAD USER + SOCKET INIT ==================
+  // ================== LOAD USER + INIT SOCKET ==================
   useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = localStorage.getItem("token");
     const payload = decodeToken(token);
 
     if (!payload) return router.push("/");
 
-    // username
-    const name =
-      payload.username || payload.name || payload.email || "User";
+    const name = payload.username || payload.name || payload.email || "User";
     setUsername(name);
 
-    // socket connect
+    // Socket connect
     const s = io(API_URL, {
       transports: ["websocket"],
       withCredentials: true,
@@ -69,16 +66,16 @@ export default function ChatPage() {
 
     setSocket(s);
 
-    // menerima pesan real-time
+    // REALTIME LISTENER
     s.on("receive_message", (data: Message) => {
       setMessages((prev) => [...prev, data]);
 
       setTimeout(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 20);
+      }, 30);
     });
 
-    // fetch pesan pertama kali
+    // Load pesan awal
     fetchMessages();
 
     return () => {
@@ -86,13 +83,21 @@ export default function ChatPage() {
     };
   }, []);
 
-  // ================== FETCH ALL MESSAGES ==================
+  // ================== FETCH MESSAGES ==================
   async function fetchMessages() {
     try {
       const res = await fetch(`${API_URL}/api/messages`);
       const data = await res.json();
 
-      setMessages(data);
+      // NORMALISASI FIELD dari DB → frontend
+      const normalized = data.map((m: any) => ({
+        id: m.id,
+        sender: m.sender,
+        message: m.message,
+        createdAt: m.created_at || m.createdAt,
+      }));
+
+      setMessages(normalized);
 
       setTimeout(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,7 +107,7 @@ export default function ChatPage() {
     }
   }
 
-  // ================== SEND MESSAGE (POST + SOCKET) ==================
+  // ================== SEND MESSAGE ==================
   async function handleSend() {
     if (!message.trim() || !socket) return;
 
@@ -110,7 +115,7 @@ export default function ChatPage() {
     if (!token) return router.push("/");
 
     try {
-      // STEP 1 → Simpan ke DB
+      // Save to DB
       const res = await fetch(`${API_URL}/api/messages`, {
         method: "POST",
         headers: {
@@ -123,14 +128,19 @@ export default function ChatPage() {
         }),
       });
 
-      const savedMessage: Message = await res.json();
+      const savedMessage = await res.json();
 
-      // STEP 2 → Emit ke socket.io
-      socket.emit("send_message", savedMessage);
+      // Normalize created_at → createdAt
+      const finalMessage: Message = {
+        ...savedMessage,
+        createdAt: savedMessage.created_at,
+      };
 
-      // STEP 3 → Kosongkan input
+      // Emit realtime
+      socket.emit("send_message", finalMessage);
+
+      // Clear input
       setMessage("");
-
     } catch (err) {
       console.error("Send message error:", err);
     }
@@ -189,12 +199,12 @@ export default function ChatPage() {
           </DropdownMenu>
         </div>
 
-        {/* MESSAGE LIST */}
+        {/* MESSAGES */}
         <div className="flex-1 overflow-y-auto px-3 py-3">
           <div className="space-y-3">
-            {messages.map((m, i) => (
+            {messages.map((m) => (
               <div
-                key={i}
+                key={m.id}
                 className={`flex ${m.sender === username ? "justify-end" : "justify-start"}`}
               >
                 <div
@@ -211,7 +221,10 @@ export default function ChatPage() {
                   <div className="mt-1 text-sm">{m.message}</div>
 
                   <div className="mt-1 text-[10px] text-gray-500">
-                    {new Date(m.createdAt).toLocaleTimeString()}
+                    {new Date(m.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 </div>
               </div>
@@ -220,10 +233,9 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* INPUT AREA */}
+        {/* INPUT */}
         <div className="w-full px-3 py-3 bg-[#0a0f24] border-t border-white/5 flex items-center gap-3">
 
-          {/* hidden file input */}
           <input
             type="file"
             ref={fileInputRef}
@@ -231,9 +243,7 @@ export default function ChatPage() {
             onChange={handleFileUpload}
           />
 
-          {/* input wrapper */}
           <div className="flex items-center bg-[#11172c] rounded-full px-3 flex-1 h-12">
-
             <button
               onClick={() => fileInputRef.current?.click()}
               className="text-white/70 hover:text-white mr-2"
@@ -241,7 +251,6 @@ export default function ChatPage() {
               +
             </button>
 
-            {/* TEXT INPUT */}
             <input
               type="text"
               value={message}
@@ -252,7 +261,6 @@ export default function ChatPage() {
             />
           </div>
 
-          {/* SEND BUTTON */}
           <button
             onClick={handleSend}
             className="h-12 w-12 flex items-center justify-center rounded-full bg-[#ff6b35] hover:bg-[#e85b2b] text-white active:scale-95 transition"

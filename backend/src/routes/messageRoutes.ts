@@ -1,3 +1,4 @@
+// src/routes/messageRoutes.ts
 import express, { Request, Response } from "express";
 import prisma from "../config/prisma";
 

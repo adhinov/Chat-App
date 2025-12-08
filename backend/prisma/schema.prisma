@@ -1,14 +1,12 @@
-// ---------- PROVIDER ----------
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// ---------- USER AUTH ----------
 model User {
   id        Int       @id @default(autoincrement())
   email     String    @unique
@@ -20,15 +18,14 @@ model User {
   lastLogin DateTime?
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
-// ---------- MESSAGES (SESUAI TABEL NEON) ----------
 model Messages {
   id         Int      @id @default(autoincrement())
   sender     String
   message    String
   created_at DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
 }
