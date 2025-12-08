@@ -90,6 +90,24 @@ export default function ChatPage() {
       s.disconnect();
     };
   }, []);
+  
+  // ================== FIX: SEND USER-ONLINE ==================
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("connect", () => {
+      const token = localStorage.getItem("token");
+      const payload = decodeToken(token);
+
+      if (payload && payload.id) {
+        socket.emit("user-online", payload.id);
+      }
+    });
+
+    return () => {
+      socket.off("connect");
+    };
+  }, [socket]);
 
   // ================== FETCH MESSAGES ==================
   async function fetchMessages() {
