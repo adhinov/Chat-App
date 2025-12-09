@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import http from "http";
+import path from "path";
 import { Server as SocketIOServer, Socket } from "socket.io";
 
 import authRoutes from "./routes/auth.routes";
@@ -15,7 +16,7 @@ const app = express();
 const server = http.createServer(app);
 
 // ================================
-// PARSE CORS MULTI-ORIGIN
+// PARSE MULTI-ORIGIN
 // ================================
 const allowedOrigins: string[] = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
@@ -43,6 +44,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ================================
+// STATIC FILES
+// ================================
+app.use(
+  "/uploads/messages",
+  express.static(path.join(__dirname, "../uploads/messages"))
+);
+
+// ================================
 // SOCKET.IO
 // ================================
 const io = new SocketIOServer(server, {
@@ -52,34 +61,27 @@ const io = new SocketIOServer(server, {
   },
 });
 
-// 👇 MAP USER ONLINE
-const onlineUsers = new Map<string, string>(); 
-// key = socket.id, value = userId
+// agar bisa diakses di controller
+app.set("io", io);
+
+// MAP: socketId → userId
+const onlineUsers = new Map<string, string>();
 
 io.on("connection", (socket: Socket) => {
   console.log("Socket connected:", socket.id);
 
-  // Frontend akan mengirim userId setelah login
   socket.on("user-online", (userId: string) => {
     onlineUsers.set(socket.id, userId);
-
-    // kirim jumlah user online ke semua client
     io.emit("onlineCount", onlineUsers.size);
   });
 
-  // Chat message
   socket.on("send_message", (data) => {
     io.emit("receive_message", data);
   });
 
-  // Disconnect
   socket.on("disconnect", () => {
     console.log("Socket disconnected:", socket.id);
-
-    // hapus user dari list online
     onlineUsers.delete(socket.id);
-
-    // broadcast jumlah baru
     io.emit("onlineCount", onlineUsers.size);
   });
 });
@@ -95,17 +97,14 @@ app.get("/", (req, res) => {
   res.json({ message: "Backend Chat-App running..." });
 });
 
-// SAFE 404 HANDLER
-app.all(/.*/, (req, res) => {
+app.all(/.*/, (_req, res) => {
   res.status(404).json({ message: "Not Found" });
 });
 
 // ================================
-// START SERVER
+// SERVER
 // ================================
 const PORT = process.env.PORT || 9002;
-server.listen(PORT, () =>
-  console.log(`Server listening on port ${PORT}`)
-);
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 export default app;

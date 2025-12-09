@@ -10,22 +10,28 @@ datasource db {
 model User {
   id        Int       @id @default(autoincrement())
   email     String    @unique
-  username  String
+  username  String?
   phone     String?
-  password  String
-  role      Role      @default(USER)
+  password  String?
+  role      String    @default("USER")
   createdAt DateTime  @default(now())
   lastLogin DateTime?
+
+  Messages  Messages[]
 }
 
 model Messages {
-  id         Int      @id @default(autoincrement())
-  sender     String
-  message    String
-  created_at DateTime @default(now())
-}
+  id        Int      @id @default(autoincrement())
+  text      String?
+  senderId  Int
+  createdAt DateTime @default(now())
 
-enum Role {
-  USER
-  ADMIN
+  // relasi
+  sender    User     @relation(fields: [senderId], references: [id])
+
+  // === Tambahan untuk upload file ===
+  fileUrl   String?
+  fileName  String?
+  fileType  String?
+  fileSize  Int?
 }

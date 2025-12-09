@@ -1,34 +1,43 @@
-import { PrismaClient } from '@prisma/client'
-import bcrypt from 'bcryptjs'
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash('admin123', salt);
+  const adminEmail = "admin@example.com";
+  const adminPassword = "admin123";
 
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      email: 'admin@example.com',
-      username: 'admin',
+  // cek apakah admin sudah ada
+  const existingAdmin = await prisma.user.findUnique({
+    where: { email: adminEmail },
+  });
+
+  if (existingAdmin) {
+    console.log("Admin already exists.");
+    return;
+  }
+
+  // hash password
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+  // buat admin baru
+  await prisma.user.create({
+    data: {
+      email: adminEmail,
+      username: "Admin",
       password: hashedPassword,
-      phone: '0',
-      role: 'admin',
-      isVerified: true
+      role: "ADMIN",
     },
-  })
-  
-  console.log({ admin })
+  });
+
+  console.log("Admin created successfully!");
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
   })
-  .catch(async (e) => {
-    console.error(e)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
