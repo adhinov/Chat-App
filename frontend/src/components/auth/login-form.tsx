@@ -33,10 +33,8 @@ export function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const API_URL =
-    process.env.NEXT_PUBLIC_API_URL?.startsWith('http')
-      ? process.env.NEXT_PUBLIC_API_URL
-      : 'http://localhost:9002';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
+  console.log("API_URL FE =", API_URL);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -53,7 +51,7 @@ export function LoginForm() {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // penting!
+        credentials: 'include',
         body: JSON.stringify({
           identifier: values.phone,
           password: values.password,
@@ -69,25 +67,28 @@ export function LoginForm() {
         const isLocalhost =
           typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
-        // ⬇️ Cookie token — FIX
+        // Simpan token dalam cookie
         document.cookie = `token=${data.token}; Path=/; ${
           isLocalhost ? 'SameSite=Lax' : 'SameSite=None; Secure'
         }`;
 
-        // ⬇️ Backup ke localStorage
+        // Backup token
         localStorage.setItem('token', data.token);
 
-        // Decode role
+        // Decode JWT
         const decoded = jwtDecode<JwtPayload>(data.token);
-        const userRole = decoded.role;
+
+        // NORMALISASI ROLE (fix utama)
+        const userRole = decoded.role?.toUpperCase();
+        console.log("Decoded role =", decoded.role, "→ Normalized =", userRole);
 
         toast({
           title: 'Success',
           description: 'Logged in successfully!',
         });
 
-        // Redirect
-        if (userRole === 'admin' || userRole === 'ADMIN') {
+        // Redirect berdasarkan role
+        if (userRole === 'ADMIN') {
           router.push('/admin-dashboard');
         } else {
           router.push('/chat');
