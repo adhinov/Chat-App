@@ -1,14 +1,21 @@
-// src/server.ts
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import http from "http";
 import path from "path";
+import jwt from "jsonwebtoken";
 import { Server as SocketIOServer, Socket } from "socket.io";
 
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 import messageRoutes from "./routes/messageRoutes";
+
+interface JwtUserPayload extends jwt.JwtPayload {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+}
 
 dotenv.config();
 
@@ -16,36 +23,22 @@ const app = express();
 const server = http.createServer(app);
 
 // ================================
-// PARSE MULTI-ORIGIN
+// CORS
 // ================================
 const allowedOrigins: string[] = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
   : [];
 
-console.log("Allowed origins:", allowedOrigins);
-
-// ================================
-// CORS CONFIG
-// ================================
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
+    origin: allowedOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================================
-// STATIC FILES
-// ================================
 app.use(
   "/uploads/messages",
   express.static(path.join(__dirname, "../uploads/messages"))
@@ -61,28 +54,65 @@ const io = new SocketIOServer(server, {
   },
 });
 
-// agar bisa diakses di controller
-app.set("io", io);
+// GLOBAL ONLINE USERS LIST
+// socket.id → { userId, username, email }
+const onlineUsers = new Map<
+  string,
+  { userId: number; username: string; email: string }
+>();
 
-// MAP: socketId → userId
-const onlineUsers = new Map<string, string>();
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("NO_TOKEN"));
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtUserPayload;
+
+    // simpan data user ke socket
+    socket.data.user = {
+      userId: decoded.id,
+      username: decoded.username,
+      email: decoded.email,
+      role: decoded.role,
+    };
+
+    next();
+  } catch (err) {
+    next(new Error("INVALID_TOKEN"));
+  }
+});
 
 io.on("connection", (socket: Socket) => {
-  console.log("Socket connected:", socket.id);
+  const user = socket.data.user;
 
-  socket.on("user-online", (userId: string) => {
-    onlineUsers.set(socket.id, userId);
-    io.emit("onlineCount", onlineUsers.size);
+  console.log("User connected:", user.username);
+
+  onlineUsers.set(socket.id, {
+    userId: user.userId,
+    username: user.username,
+    email: user.email,
   });
 
-  socket.on("send_message", (data) => {
-    io.emit("receive_message", data);
+  // Broadcast daftar online user ke semua client
+  io.emit("onlineUsers", Array.from(onlineUsers.values()));
+
+  // Saat kirim pesan
+  socket.on("send_message", (text: string) => {
+    const messageData = {
+      userId: user.userId,
+      username: user.username,
+      message: text,
+      createdAt: new Date().toISOString(),
+    };
+
+    io.emit("receive_message", messageData);
   });
 
+  // disconnect
   socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
+    console.log("User disconnected:", user.username);
     onlineUsers.delete(socket.id);
-    io.emit("onlineCount", onlineUsers.size);
+    io.emit("onlineUsers", Array.from(onlineUsers.values()));
   });
 });
 
@@ -97,13 +127,6 @@ app.get("/", (req, res) => {
   res.json({ message: "Backend Chat-App running..." });
 });
 
-app.all(/.*/, (_req, res) => {
-  res.status(404).json({ message: "Not Found" });
-});
-
-// ================================
-// SERVER
-// ================================
 const PORT = process.env.PORT || 9002;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 

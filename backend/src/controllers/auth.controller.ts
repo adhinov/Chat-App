@@ -15,21 +15,22 @@ export const login = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "identifier & password required" });
   }
 
-  // 👉 Dummy user hanya untuk tes FE
-  // ❗ Admin hanya boleh login jika email = admin@example.com
+  // 👉 Dummy login untuk testing FE
   let user;
 
   if (identifier === "admin@example.com") {
     user = {
       id: 1,
       email: identifier,
-      role: "ADMIN",
+      username: "Admin",
+      role: "ADMIN",   // ⬅️ FIX: selalu CAPITAL
     };
   } else {
     user = {
-      id: 2, // untuk user biasa beri id berbeda agar tidak rancu
+      id: 2,
       email: identifier,
-      role: "user",
+      username: identifier.split("@")[0],
+      role: "USER",    // ⬅️ lebih baik konsisten kapital juga
     };
   }
 
@@ -38,7 +39,8 @@ export const login = async (req: Request, res: Response) => {
     {
       id: user.id,
       email: user.email,
-      role: user.role,
+      username: user.username,
+      role: user.role, // ⬅️ sekarang pasti "ADMIN" atau "USER"
     },
     process.env.JWT_SECRET as string,
     { expiresIn: "7d" }
@@ -55,6 +57,6 @@ export const getProfile = async (req: Request, res: Response) => {
   console.log("GET PROFILE");
   return res.json({
     message: "Profile endpoint hit",
-    user: req.user, // ⬅️ jadikan profile real dari JWT
+    user: req.user,
   });
 };
