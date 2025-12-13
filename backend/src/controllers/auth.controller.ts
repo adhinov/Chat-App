@@ -1,11 +1,17 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
+// ===============================
+// REGISTER (Dummy)
+// ===============================
 export const register = async (req: Request, res: Response) => {
   console.log("REGISTER BODY =", req.body);
   return res.json({ message: "Register endpoint hit" });
 };
 
+// ===============================
+// LOGIN (Dummy without DB)
+// ===============================
 export const login = async (req: Request, res: Response) => {
   console.log("LOGIN BODY =", req.body);
 
@@ -15,32 +21,32 @@ export const login = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "identifier & password required" });
   }
 
-  // 👉 Dummy login untuk testing FE
   let user;
 
+  // ADMIN FIX – sesuai perintah: role harus "ADMIN" (huruf besar semua)
   if (identifier === "admin@example.com") {
     user = {
       id: 1,
       email: identifier,
       username: "Admin",
-      role: "ADMIN",   // ⬅️ FIX: selalu CAPITAL
+      role: "ADMIN",
     };
   } else {
     user = {
       id: 2,
       email: identifier,
       username: identifier.split("@")[0],
-      role: "USER",    // ⬅️ lebih baik konsisten kapital juga
+      role: "USER",
     };
   }
 
-  // 👉 Generate JWT
+  // generate token
   const token = jwt.sign(
     {
       id: user.id,
       email: user.email,
       username: user.username,
-      role: user.role, // ⬅️ sekarang pasti "ADMIN" atau "USER"
+      role: user.role,
     },
     process.env.JWT_SECRET as string,
     { expiresIn: "7d" }
@@ -53,10 +59,14 @@ export const login = async (req: Request, res: Response) => {
   });
 };
 
+// ===============================
+// GET PROFILE
+// ===============================
 export const getProfile = async (req: Request, res: Response) => {
   console.log("GET PROFILE");
+
   return res.json({
     message: "Profile endpoint hit",
-    user: req.user,
+    user: req.user, // ✔ hasil decode JWT
   });
 };

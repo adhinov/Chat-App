@@ -1,6 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import http from "http";
 import path from "path";
 import jwt from "jsonwebtoken";
@@ -10,6 +12,9 @@ import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 import messageRoutes from "./routes/messageRoutes";
 
+// ================================
+// TYPES
+// ================================
 interface JwtUserPayload extends jwt.JwtPayload {
   id: number;
   username: string;
@@ -17,8 +22,9 @@ interface JwtUserPayload extends jwt.JwtPayload {
   role: string;
 }
 
-dotenv.config();
-
+// ================================
+// APP INIT
+// ================================
 const app = express();
 const server = http.createServer(app);
 
@@ -39,6 +45,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// serve uploads
 app.use(
   "/uploads/messages",
   express.static(path.join(__dirname, "../uploads/messages"))
@@ -54,65 +61,77 @@ const io = new SocketIOServer(server, {
   },
 });
 
-// GLOBAL ONLINE USERS LIST
-// socket.id → { userId, username, email }
-const onlineUsers = new Map<
-  string,
-  { userId: number; username: string; email: string }
->();
+app.set("io", io);
 
-io.use((socket, next) => {
+// ================================
+// ONLINE USERS
+// ================================
+type OnlineUser = {
+  id: number;
+  username: string;
+  email: string;
+};
+
+const onlineUsers = new Map<string, OnlineUser>();
+
+// ================================
+// SOCKET AUTH
+// ================================
+io.use((socket: Socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error("NO_TOKEN"));
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtUserPayload;
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET!
+    ) as JwtUserPayload;
 
-    // simpan data user ke socket
     socket.data.user = {
-      userId: decoded.id,
+      id: decoded.id,
       username: decoded.username,
       email: decoded.email,
-      role: decoded.role,
     };
 
     next();
-  } catch (err) {
+  } catch {
     next(new Error("INVALID_TOKEN"));
   }
 });
 
+// ================================
+// SOCKET EVENTS
+// ================================
 io.on("connection", (socket: Socket) => {
-  const user = socket.data.user;
+  const user = socket.data.user as OnlineUser;
 
-  console.log("User connected:", user.username);
+  console.log("🟢 Connected:", user.username);
 
-  onlineUsers.set(socket.id, {
-    userId: user.userId,
-    username: user.username,
-    email: user.email,
-  });
+  onlineUsers.set(socket.id, user);
+  io.emit("onlineCount", onlineUsers.size);
 
-  // Broadcast daftar online user ke semua client
-  io.emit("onlineUsers", Array.from(onlineUsers.values()));
+  // SEND MESSAGE
+  socket.on("send-message", ({ text }) => {
+      if (!text?.trim()) return;
 
-  // Saat kirim pesan
-  socket.on("send_message", (text: string) => {
-    const messageData = {
-      userId: user.userId,
-      username: user.username,
-      message: text,
-      createdAt: new Date().toISOString(),
-    };
+      const message = {
+        id: Date.now(),
+        text,
+        createdAt: new Date().toISOString(),
+        sender: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+        },
+      };
 
-    io.emit("receive_message", messageData);
-  });
+      io.emit("receive-message", message);
+    });
 
-  // disconnect
   socket.on("disconnect", () => {
-    console.log("User disconnected:", user.username);
+    console.log("🔴 Disconnected:", user.username);
     onlineUsers.delete(socket.id);
-    io.emit("onlineUsers", Array.from(onlineUsers.values()));
+    io.emit("onlineCount", onlineUsers.size);
   });
 });
 
@@ -123,11 +142,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/messages", messageRoutes);
 
-app.get("/", (req, res) => {
+// ROOT
+app.get("/", (_req, res) => {
   res.json({ message: "Backend Chat-App running..." });
 });
 
+// ================================
+// START SERVER
+// ================================
 const PORT = process.env.PORT || 9002;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () =>
+  console.log(`🚀 Server running on port ${PORT}`)
+);
 
 export default app;

@@ -1,26 +1,32 @@
-import express from "express";
-import { verifyToken } from "../middleware/verifyToken";
+import { Router } from "express";
+import { authenticateToken } from "../middleware/authenticateToken";
 import {
-  uploadMessageFile,
   getAllMessages,
-  sendTextMessage
+  sendTextMessage,
+  uploadMessageFile,
 } from "../controllers/messageController";
 
-import { upload } from "../config/multer";   // ✅ WAJIB DARI MULTER CONFIG
+import { upload } from "../config/multer";
 
-const router = express.Router();
+const router = Router();
 
-// GET : ambil semua history chat
-router.get("/", verifyToken, getAllMessages);
+// ===============================
+// GET ALL MESSAGES
+// ===============================
+router.get("/", authenticateToken, getAllMessages);
 
-// POST : kirim pesan text
-router.post("/", verifyToken, sendTextMessage);
+// ===============================
+// SEND TEXT MESSAGE
+// ===============================
+router.post("/", authenticateToken, sendTextMessage);
 
-// POST : upload file (gambar/pdf/dll)
+// ===============================
+// UPLOAD FILE MESSAGE
+// ===============================
 router.post(
   "/upload",
-  verifyToken,
-  upload.single("file"),   // ✔️ ini dari config multer
+  authenticateToken,
+  upload.single("file"),
   uploadMessageFile
 );
 
