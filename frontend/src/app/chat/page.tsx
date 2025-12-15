@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import io, { Socket } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
 // =========================
@@ -15,28 +15,14 @@ type Sender = {
 
 type Message = {
   id: number;
-  text: string;
+  text: string | null;
   createdAt: string;
   sender: Sender;
 };
 
-// =========================
-// HELPERS
-// =========================
-function decodeToken(token: string | null): any | null {
-  if (!token) return null;
-  try {
-    return JSON.parse(atob(token.split(".")[1]));
-  } catch {
-    return null;
-  }
-}
-
-// =========================
-// COMPONENT
-// =========================
 export default function ChatPage() {
   const router = useRouter();
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,13 +30,11 @@ export default function ChatPage() {
   const [me, setMe] = useState<Sender | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
 
   // =========================
-  // INIT
+  // INIT (LOGIN + SOCKET)
   // =========================
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -59,63 +43,95 @@ export default function ChatPage() {
       return;
     }
 
-    const payload = decodeToken(token);
-    if (!payload) {
-      router.push("/");
-      return;
-    }
+    let s: Socket;
 
-    const currentUser: Sender = {
-      id: payload.id,
-      username: payload.username || payload.email,
-      email: payload.email,
-    };
+    (async () => {
+      try {
+        // 🔒 ambil user VALID dari backend
+        const res = await fetch(`${API_URL}/api/auth/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    setMe(currentUser);
+        if (!res.ok) {
+          router.push("/");
+          return;
+        }
 
-    const s = io(API_URL, {
-      transports: ["websocket"],
-      auth: { token },
-    });
+        const data = await res.json();
+        const currentUser: Sender = {
+          id: Number(data.user.id),
+          username: data.user.username,
+          email: data.user.email,
+        };
 
-    setSocket(s);
+        setMe(currentUser);
 
-    // ONLINE COUNT
-    s.on("onlineCount", (count: number) => {
-      setOnlineCount(count);
-    });
+        // 🔌 CONNECT SOCKET (HANYA SEKALI)
+        s = io(API_URL, {
+          transports: ["websocket"],
+          auth: { token },
+        });
 
-    // RECEIVE MESSAGE (SATU-SATUNYA SUMBER MESSAGE)
-    s.on("receive-message", (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
-      scrollToBottom();
-    });
+        setSocket(s);
 
-    // FETCH HISTORY
-    fetchMessages(token);
+        // ===== ONLINE COUNT (ANTI DOBEL)
+        s.on("onlineCount", (count: number) => {
+          setOnlineCount(count);
+        });
+
+        // ===== RECEIVE MESSAGE (ANTI DUPLIKAT)
+        s.on("receive_message", (msg: Message) => {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) {
+              return prev; // 🚫 sudah ada
+            }
+            return [...prev, msg];
+          });
+          scrollToBottom();
+        });
+
+        // ===== FETCH HISTORY SEKALI
+        await fetchMessages(token);
+      } catch (err) {
+        console.error("Init error:", err);
+        router.push("/");
+      }
+    })();
 
     return () => {
-      s.disconnect();
+      if (s) {
+        s.off("receive_message");
+        s.off("onlineCount");
+        s.disconnect();
+      }
       setSocket(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =========================
-  // FETCH HISTORY
+  // FETCH HISTORY (ANTI DUPLIKAT)
   // =========================
   async function fetchMessages(token: string) {
     try {
       const res = await fetch(`${API_URL}/api/messages`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) return;
 
       const data: Message[] = await res.json();
-      setMessages(data);
+
+      setMessages((prev) => {
+        const merged = [...prev];
+        data.forEach((msg) => {
+          if (!merged.some((m) => m.id === msg.id)) {
+            merged.push(msg);
+          }
+        });
+        return merged;
+      });
+
       scrollToBottom();
     } catch (err) {
       console.error("Fetch messages error:", err);
@@ -123,12 +139,20 @@ export default function ChatPage() {
   }
 
   // =========================
-  // SEND MESSAGE (NO OPTIMISTIC UI)
+  // SEND MESSAGE
   // =========================
-  function handleSend() {
-    if (!text.trim() || !socket) return;
+  async function handleSend() {
+    if (!text.trim()) return;
 
-    socket.emit("send-message", { text });
+    await fetch(`${API_URL}/api/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+
     setText("");
   }
 
@@ -141,8 +165,9 @@ export default function ChatPage() {
     }, 50);
   }
 
-  function isMine(msg: Message) {
-    return msg.sender.id === me?.id;
+  function isMine(msg: Message): boolean {
+    if (!me || !msg.sender) return false;
+    return Number(msg.sender.id) === Number(me.id);
   }
 
   // =========================
@@ -177,21 +202,25 @@ export default function ChatPage() {
         {/* MESSAGES */}
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
           {messages.map((m) => {
+            if (!me) return null;
             const mine = isMine(m);
+
             return (
               <div
                 key={m.id}
                 className={`flex ${mine ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`px-4 py-2 rounded-xl max-w-[75%] break-words ${
-                    mine ? "bg-[#2a4365]" : "bg-[#1f2937]"
+                  className={`max-w-[75%] px-4 py-2 rounded-xl break-words ${
+                    mine
+                      ? "bg-[#2563eb] rounded-br-none"
+                      : "bg-[#1f2937] rounded-bl-none"
                   }`}
                 >
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-gray-300 mb-1">
                     {mine ? "You" : m.sender.username}
                   </div>
-                  <div className="text-sm mt-1">{m.text}</div>
+                  <div className="text-sm">{m.text}</div>
                 </div>
               </div>
             );

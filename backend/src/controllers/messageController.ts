@@ -1,3 +1,4 @@
+// messageController.ts
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
@@ -47,6 +48,12 @@ export const getAllMessages = async (req: Request, res: Response): Promise<void>
 export const sendTextMessage = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
     const { text } = req.body;
 
     if (!text || text.trim() === "") {
@@ -56,7 +63,7 @@ export const sendTextMessage = async (req: Request, res: Response): Promise<void
 
     const newMsg = await prisma.messages.create({
       data: {
-        senderId: user.id,
+        senderId: user.id, // ✅ SAFE
         text: text.trim(),
       },
       include: {
@@ -82,6 +89,12 @@ export const sendTextMessage = async (req: Request, res: Response): Promise<void
 export const uploadMessageFile = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
     const file = req.file;
 
     if (!file) {
@@ -91,7 +104,7 @@ export const uploadMessageFile = async (req: Request, res: Response): Promise<vo
 
     const newMsg = await prisma.messages.create({
       data: {
-        senderId: user.id,
+        senderId: user.id, // ✅ TS AMAN
         fileUrl: "/uploads/messages/" + file.filename,
         fileName: file.originalname,
         fileType: file.mimetype,
@@ -113,3 +126,4 @@ export const uploadMessageFile = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ error: "Server error" });
   }
 };
+

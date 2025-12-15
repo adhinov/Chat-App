@@ -22,6 +22,12 @@ interface JwtUserPayload extends jwt.JwtPayload {
   role: string;
 }
 
+type OnlineUser = {
+  id: number;
+  username: string;
+  email: string;
+};
+
 // ================================
 // APP INIT
 // ================================
@@ -45,14 +51,16 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// serve uploads
+// ================================
+// STATIC UPLOADS
+// ================================
 app.use(
   "/uploads/messages",
   express.static(path.join(__dirname, "../uploads/messages"))
 );
 
 // ================================
-// SOCKET.IO
+// SOCKET.IO INIT
 // ================================
 const io = new SocketIOServer(server, {
   cors: {
@@ -61,21 +69,17 @@ const io = new SocketIOServer(server, {
   },
 });
 
+// supaya controller bisa emit
 app.set("io", io);
 
 // ================================
-// ONLINE USERS
+// ONLINE USERS (ANTI DOUBLE)
+// KEY = USER ID (BUKAN SOCKET ID ❗)
 // ================================
-type OnlineUser = {
-  id: number;
-  username: string;
-  email: string;
-};
-
-const onlineUsers = new Map<string, OnlineUser>();
+const onlineUsers = new Map<number, OnlineUser>();
 
 // ================================
-// SOCKET AUTH
+// SOCKET AUTH (JWT)
 // ================================
 io.use((socket: Socket, next) => {
   try {
@@ -94,7 +98,7 @@ io.use((socket: Socket, next) => {
     };
 
     next();
-  } catch {
+  } catch (err) {
     next(new Error("INVALID_TOKEN"));
   }
 });
@@ -105,32 +109,17 @@ io.use((socket: Socket, next) => {
 io.on("connection", (socket: Socket) => {
   const user = socket.data.user as OnlineUser;
 
-  console.log("🟢 Connected:", user.username);
+  console.log("🟢 Connected:", user.username, `(id=${user.id})`);
 
-  onlineUsers.set(socket.id, user);
+  // 🔥 SIMPAN BERDASARKAN USER ID
+  onlineUsers.set(user.id, user);
   io.emit("onlineCount", onlineUsers.size);
-
-  // SEND MESSAGE
-  socket.on("send-message", ({ text }) => {
-      if (!text?.trim()) return;
-
-      const message = {
-        id: Date.now(),
-        text,
-        createdAt: new Date().toISOString(),
-        sender: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-        },
-      };
-
-      io.emit("receive-message", message);
-    });
 
   socket.on("disconnect", () => {
     console.log("🔴 Disconnected:", user.username);
-    onlineUsers.delete(socket.id);
+
+    // 🔥 HAPUS BERDASARKAN USER ID
+    onlineUsers.delete(user.id);
     io.emit("onlineCount", onlineUsers.size);
   });
 });
@@ -151,8 +140,8 @@ app.get("/", (_req, res) => {
 // START SERVER
 // ================================
 const PORT = process.env.PORT || 9002;
-server.listen(PORT, () =>
-  console.log(`🚀 Server running on port ${PORT}`)
-);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
 export default app;

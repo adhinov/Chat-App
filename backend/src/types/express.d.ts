@@ -1,10 +1,16 @@
-// Augment Express Request type to include `user` set by our auth middleware
+import "express";
+
+export interface JwtUserPayload {
+  id: number;
+  email: string;
+  username: string;
+  role: "ADMIN" | "USER";
+}
+
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: JwtUserPayload;
     }
   }
 }
-
-export {};

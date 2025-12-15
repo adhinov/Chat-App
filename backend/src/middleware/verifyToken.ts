@@ -1,17 +1,44 @@
-// src/middleware/verifyToken.ts
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 
-interface JwtPayload {
-  id: number;
-  email: string;
+// ===============================
+// EXTEND EXPRESS REQUEST
+// ===============================
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: number;        // 🔥 users.id (PRIMARY KEY)
+        email: string;
+        username: string;
+      };
+    }
+  }
 }
 
-export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
+// ===============================
+// JWT PAYLOAD TYPE
+// ===============================
+interface TokenPayload extends JwtPayload {
+  id: number;        // users.id
+  email: string;
+  username: string;
+}
+
+// ===============================
+// MIDDLEWARE
+// ===============================
+export const verifyToken = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized: No token provided" });
+    return res.status(401).json({
+      message: "Unauthorized: token missing",
+    });
   }
 
   const token = authHeader.split(" ")[1];
@@ -19,16 +46,20 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "defaultsecret"
-    ) as JwtPayload;
+      process.env.JWT_SECRET as string
+    ) as TokenPayload;
 
+    // 🔥 INI KUNCI UTAMA (WAJIB)
     req.user = {
-      id: decoded.id,
+      id: decoded.id,           // users.id (DB)
       email: decoded.email,
+      username: decoded.username,
     };
 
     next();
-  } catch (error) {
-    return res.status(403).json({ message: "Invalid or expired token" });
+  } catch (err) {
+    return res.status(403).json({
+      message: "Invalid or expired token",
+    });
   }
 };

@@ -1,48 +1,39 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-/**
- * Payload JWT yang kita pakai di seluruh app
- */
+// ================= TYPES =================
 export interface JwtUserPayload {
   id: number;
   email: string;
   username: string;
-  role: "ADMIN" | "USER";
+  role: string;
 }
 
-/**
- * Extend Express Request
- */
-export interface AuthRequest extends Request {
-  user?: JwtUserPayload;
-}
-
+// ================= MIDDLEWARE =================
 export const authenticateToken = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "No token provided" });
-    }
-
-    const token = authHeader.split(" ")[1];
-
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
     ) as JwtUserPayload;
 
-    // ✅ INI PALING PENTING
-    req.user = decoded;
+    // 🔥 Inject ke req (Express allow this)
+    (req as any).user = decoded;
 
     next();
-  } catch (err) {
-    console.error("AUTH TOKEN ERROR =", err);
-    return res.status(403).json({ message: "Invalid or expired token" });
+  } catch {
+    return res.status(403).json({ message: "Invalid token" });
   }
 };
