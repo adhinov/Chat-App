@@ -54,34 +54,67 @@ export const register = async (req: Request, res: Response) => {
 };
 
 // ================= LOGIN =================
+// ================= LOGIN =================
 export const login = async (req: Request, res: Response) => {
-  const { identifier, password } = req.body;
+  try {
+    const { identifier, password } = req.body;
 
-  const user = await prisma.user.findUnique({
-    where: { email: identifier },
-  });
+    if (!identifier || !password) {
+      return res.status(400).json({
+        message: "Identifier & password required",
+      });
+    }
 
-  if (!user || !user.password) {
-    return res.status(401).json({ message: "Invalid credentials" });
+    // 🔥 DETECT LOGIN VIA EMAIL ATAU PHONE
+    const isEmail = identifier.includes("@");
+
+    const user = await prisma.user.findFirst({
+      where: isEmail
+        ? { email: identifier }
+        : { phone: identifier },
+    });
+
+    if (!user || !user.password) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+      },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      message: "Login success",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+    return res.status(500).json({
+      message: "Login failed",
+    });
   }
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) {
-    return res.status(401).json({ message: "Invalid credentials" });
-  }
-
-  const token = jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-    } as JwtUserPayload,
-    process.env.JWT_SECRET as string,
-    { expiresIn: "7d" }
-  );
-
-  res.json({ token, user });
 };
 
 // ================= PROFILE =================
