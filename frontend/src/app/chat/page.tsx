@@ -136,16 +136,27 @@ export default function ChatPage() {
   // SEND IMAGE
   // =========================
   async function handleImageUpload(file: File) {
-    const formData = new FormData();
-    formData.append("image", file);
+  const formData = new FormData();
+  formData.append("image", file);
 
-    await fetch(`${API_URL}/api/messages/upload`, {
+    const res = await fetch(`${API_URL}/api/messages/upload`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
       body: formData,
     });
+
+    if (!res.ok) return;
+
+    const msg: Message = await res.json();
+
+    // 🔥 TAMBAHKAN LANGSUNG KE UI
+    setMessages((prev) =>
+      prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
+    );
+
+    scrollToBottom();
   }
 
   // =========================
