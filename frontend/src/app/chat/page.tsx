@@ -57,13 +57,11 @@ export default function ChatPage() {
         if (!res.ok) return router.push("/");
 
         const data = await res.json();
-        const currentUser: Sender = {
+        setMe({
           id: Number(data.user.id),
           username: data.user.username,
           email: data.user.email,
-        };
-
-        setMe(currentUser);
+        });
 
         s = io(API_URL, {
           transports: ["websocket"],
@@ -89,9 +87,7 @@ export default function ChatPage() {
     })();
 
     return () => {
-      if (s) {
-        s.disconnect();
-      }
+      s?.disconnect();
     };
     // eslint-disable-next-line
   }, []);
@@ -176,38 +172,35 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* MENU */}
-          <div className="relative">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="h-9 w-9 rounded-full bg-[#1f2937] flex items-center justify-center"
-            >
-              ⚙️
-            </button>
+          <button
+            onClick={() => setMenuOpen((p) => !p)}
+            className="w-9 aspect-square rounded-full bg-white/10 flex items-center justify-center"
+          >
+            ⚙️
+          </button>
 
-            {menuOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-[#1f2937] rounded-lg shadow-lg overflow-hidden">
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push("/profile");
-                  }}
-                  className="w-full text-left px-4 py-2 hover:bg-white/10"
-                >
-                  Edit Profile
-                </button>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    router.push("/");
-                  }}
-                  className="w-full text-left px-4 py-2 text-red-400 hover:bg-white/10"
-                >
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
+          {menuOpen && (
+            <div className="absolute right-4 top-14 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden text-sm">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push("/profile");
+                }}
+                className="block w-full px-4 py-2 hover:bg-white/10 text-left"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("token");
+                  router.push("/");
+                }}
+                className="block w-full px-4 py-2 hover:bg-white/10 text-left text-red-400"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
 
         {/* MESSAGES */}
@@ -246,39 +239,45 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* INPUT */}
-        <div className="p-3 border-t border-white/10 flex gap-2 items-center">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="h-11 w-11 rounded-full bg-[#1f2937] text-xl"
-          >
-            +
-          </button>
+        {/* INPUT BAR (WHATSAPP STYLE) */}
+        <div className="p-3 border-t border-white/10">
+          <div className="flex items-center gap-2 bg-[#11172c] rounded-full px-2 h-12">
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) =>
-              e.target.files && handleImageUpload(e.target.files[0])
-            }
-          />
+            {/* PLUS */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-9 aspect-square rounded-full bg-white/10 flex items-center justify-center text-xl"
+            >
+              +
+            </button>
 
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Type message..."
-            className="flex-1 bg-[#11172c] rounded-full px-4 h-11 outline-none"
-          />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) =>
+                e.target.files && handleImageUpload(e.target.files[0])
+              }
+            />
 
-          <button
-            onClick={handleSend}
-            className="h-11 w-11 rounded-full bg-[#ff6b35]"
-          >
-            ➤
-          </button>
+            {/* TEXT INPUT */}
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Type message..."
+              className="flex-1 bg-transparent outline-none text-sm"
+            />
+
+            {/* SEND */}
+            <button
+              onClick={handleSend}
+              className="w-10 aspect-square rounded-full bg-[#ff6b35] flex items-center justify-center text-lg"
+            >
+              ➤
+            </button>
+          </div>
         </div>
       </div>
     </div>
