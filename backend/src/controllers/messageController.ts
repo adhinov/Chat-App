@@ -1,69 +1,63 @@
-// messageController.ts
 import { Request, Response } from "express";
 import prisma from "../config/prisma";
 
 // ===============================
-// Helper: normalize message
+// Helper
 // ===============================
-function normalize(m: any) {
-  return {
-    id: m.id,
-    sender: {
-      id: m.sender?.id,
-      username: m.sender?.username,
-      email: m.sender?.email,
-    },
-    text: m.text || null,
-    fileUrl: m.fileUrl || null,
-    fileName: m.fileName || null,
-    fileType: m.fileType || null,
-    fileSize: m.fileSize || null,
-    createdAt: m.createdAt,
-  };
-}
+const normalize = (m: any) => ({
+  id: m.id,
+  sender: {
+    id: m.sender?.id,
+    username: m.sender?.username,
+    email: m.sender?.email,
+  },
+  text: m.text || null,
+
+  // 🔥 PENTING: frontend pakai `image`
+  image: m.fileUrl || null,
+
+  createdAt: m.createdAt,
+});
 
 // ===============================
-// GET ALL MESSAGES
+// GET ALL
 // ===============================
-export const getAllMessages = async (req: Request, res: Response): Promise<void> => {
+export const getAllMessages = async (req: Request, res: Response) => {
   try {
-    const msgs = await prisma.messages.findMany({
+    const messages = await prisma.messages.findMany({
       orderBy: { createdAt: "asc" },
       include: {
         sender: { select: { id: true, username: true, email: true } },
       },
     });
 
-    const normalized = msgs.map((m) => normalize(m));
-    res.json(normalized);
-  } catch (error) {
-    console.error("GET messages error:", error);
-    res.status(500).json({ error: "Server error" });
+    res.json(messages.map(normalize));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // ===============================
-// SEND TEXT MESSAGE
+// SEND TEXT
 // ===============================
-export const sendTextMessage = async (req: Request, res: Response): Promise<void> => {
+export const sendTextMessage = async (req: Request, res: Response) => {
   try {
-    const user = req.user;
+    const user = (req as any).user;
 
     if (!user) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
     const { text } = req.body;
 
-    if (!text || text.trim() === "") {
-      res.status(400).json({ error: "Text message required" });
-      return;
+    if (!text?.trim()) {
+      return res.status(400).json({ message: "Message required" });
     }
 
-    const newMsg = await prisma.messages.create({
+    const msg = await prisma.messages.create({
       data: {
-        senderId: user.id, // ✅ SAFE
+        senderId: user.id,
         text: text.trim(),
       },
       include: {
@@ -71,41 +65,41 @@ export const sendTextMessage = async (req: Request, res: Response): Promise<void
       },
     });
 
-    const normalized = normalize(newMsg);
+    const normalized = normalize(msg);
 
-    const io = req.app.get("io");
-    io.emit("receive_message", normalized);
+    req.app.get("io").emit("receive_message", normalized);
 
     res.json(normalized);
-  } catch (error) {
-    console.error("POST text message error:", error);
-    res.status(500).json({ error: "Server error" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // ===============================
-// UPLOAD FILE MESSAGE
+// UPLOAD IMAGE
 // ===============================
-export const uploadMessageFile = async (req: Request, res: Response): Promise<void> => {
+export const uploadMessageImage = async (req: Request, res: Response) => {
   try {
-    const user = req.user;
-
-    if (!user) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
+    const user = (req as any).user;
     const file = req.file;
 
-    if (!file) {
-      res.status(400).json({ error: "File required" });
-      return;
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const newMsg = await prisma.messages.create({
+    if (!file) {
+      return res.status(400).json({ message: "File required" });
+    }
+
+    const msg = await prisma.messages.create({
       data: {
-        senderId: user.id, // ✅ TS AMAN
-        fileUrl: "/uploads/messages/" + file.filename,
+        senderId: user.id,
+
+        // text NULL untuk image
+        text: null,
+
+        fileUrl: `/uploads/messages/${file.filename}`,
         fileName: file.originalname,
         fileType: file.mimetype,
         fileSize: file.size,
@@ -115,15 +109,14 @@ export const uploadMessageFile = async (req: Request, res: Response): Promise<vo
       },
     });
 
-    const normalized = normalize(newMsg);
+    const normalized = normalize(msg);
 
-    const io = req.app.get("io");
-    io.emit("receive_message", normalized);
+    // 🔥 realtime
+    req.app.get("io").emit("receive_message", normalized);
 
     res.json(normalized);
-  } catch (error) {
-    console.error("UPLOAD file message error:", error);
-    res.status(500).json({ error: "Server error" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };
-

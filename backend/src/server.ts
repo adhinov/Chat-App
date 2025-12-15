@@ -52,11 +52,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ================================
-// STATIC UPLOADS
+// STATIC UPLOADS (🔥 FIX FINAL)
 // ================================
+// akses via: http://HOST/uploads/messages/xxx.jpg
 app.use(
-  "/uploads/messages",
-  express.static(path.join(__dirname, "../uploads/messages"))
+  "/uploads",
+  express.static(path.join(__dirname, "../uploads"))
 );
 
 // ================================
@@ -73,8 +74,7 @@ const io = new SocketIOServer(server, {
 app.set("io", io);
 
 // ================================
-// ONLINE USERS (ANTI DOUBLE)
-// KEY = USER ID (BUKAN SOCKET ID ❗)
+// ONLINE USERS
 // ================================
 const onlineUsers = new Map<number, OnlineUser>();
 
@@ -98,7 +98,7 @@ io.use((socket: Socket, next) => {
     };
 
     next();
-  } catch (err) {
+  } catch {
     next(new Error("INVALID_TOKEN"));
   }
 });
@@ -111,14 +111,12 @@ io.on("connection", (socket: Socket) => {
 
   console.log("🟢 Connected:", user.username, `(id=${user.id})`);
 
-  // 🔥 SIMPAN BERDASARKAN USER ID
   onlineUsers.set(user.id, user);
   io.emit("onlineCount", onlineUsers.size);
 
   socket.on("disconnect", () => {
     console.log("🔴 Disconnected:", user.username);
 
-    // 🔥 HAPUS BERDASARKAN USER ID
     onlineUsers.delete(user.id);
     io.emit("onlineCount", onlineUsers.size);
   });

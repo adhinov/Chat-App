@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-// ================= TYPES =================
 export interface JwtUserPayload {
   id: number;
   email: string;
@@ -9,7 +8,6 @@ export interface JwtUserPayload {
   role: string;
 }
 
-// ================= MIDDLEWARE =================
 export const authenticateToken = (
   req: Request,
   res: Response,
@@ -29,7 +27,7 @@ export const authenticateToken = (
       process.env.JWT_SECRET as string
     ) as JwtUserPayload;
 
-    // 🔥 Inject ke req (Express allow this)
+    // inject user
     (req as any).user = decoded;
 
     next();

@@ -16,7 +16,8 @@ type Sender = {
 type Message = {
   id: number;
   text: string | null;
-  image?: string | null;
+  fileUrl?: string | null;
+  fileType?: string | null;
   createdAt: string;
   sender: Sender;
 };
@@ -31,13 +32,15 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [me, setMe] = useState<Sender | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
 
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
 
   // =========================
-  // INIT
+  // INIT (AUTH + SOCKET)
   // =========================
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -46,7 +49,12 @@ export default function ChatPage() {
       return;
     }
 
-    let s: Socket;
+    const s = io(API_URL, {
+      transports: ["websocket"],
+      auth: { token },
+    });
+
+    setSocket(s);
 
     (async () => {
       try {
@@ -54,7 +62,10 @@ export default function ChatPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (!res.ok) return router.push("/");
+        if (!res.ok) {
+          router.push("/");
+          return;
+        }
 
         const data = await res.json();
         setMe({
@@ -62,13 +73,6 @@ export default function ChatPage() {
           username: data.user.username,
           email: data.user.email,
         });
-
-        s = io(API_URL, {
-          transports: ["websocket"],
-          auth: { token },
-        });
-
-        setSocket(s);
 
         s.on("onlineCount", setOnlineCount);
 
@@ -81,15 +85,18 @@ export default function ChatPage() {
 
         await fetchMessages(token);
       } catch (err) {
-        console.error(err);
+        console.error("Init error:", err);
         router.push("/");
       }
     })();
 
+    // ✅ CLEANUP (WAJIB FUNCTION)
     return () => {
-      s?.disconnect();
+      s.off("onlineCount");
+      s.off("receive_message");
+      s.disconnect();
     };
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =========================
@@ -152,6 +159,13 @@ export default function ChatPage() {
 
   function isMine(msg: Message) {
     return me && msg.sender.id === me.id;
+  }
+
+  function formatTime(date: string) {
+    return new Date(date).toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   // =========================
@@ -223,15 +237,20 @@ export default function ChatPage() {
                     {mine ? "You" : m.sender.username}
                   </div>
 
-                  {m.image && (
+                  {m.fileUrl && m.fileType?.startsWith("image") && (
                     <img
-                      src={m.image}
+                      src={`${API_URL}${m.fileUrl}`}
                       alt="upload"
                       className="rounded-lg mb-2 max-h-60"
                     />
                   )}
 
                   {m.text && <div className="text-sm">{m.text}</div>}
+
+                  {/* JAM */}
+                  <div className="text-[10px] text-gray-300 text-right mt-1">
+                    {formatTime(m.createdAt)}
+                  </div>
                 </div>
               </div>
             );
@@ -239,17 +258,31 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* INPUT BAR (WHATSAPP STYLE) */}
+        {/* INPUT BAR */}
         <div className="p-3 border-t border-white/10">
-          <div className="flex items-center gap-2 bg-[#11172c] rounded-full px-2 h-12">
+          <div className="relative flex items-center gap-2 bg-[#11172c] rounded-full px-2 h-12">
 
             {/* PLUS */}
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setPlusOpen((p) => !p)}
               className="w-9 aspect-square rounded-full bg-white/10 flex items-center justify-center text-xl"
             >
               +
             </button>
+
+            {plusOpen && (
+              <div className="absolute bottom-14 left-2 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden text-sm">
+                <button
+                  onClick={() => {
+                    setPlusOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="block w-full px-4 py-2 hover:bg-white/10 text-left"
+                >
+                  📷 Upload Gambar
+                </button>
+              </div>
+            )}
 
             <input
               ref={fileInputRef}
@@ -261,7 +294,7 @@ export default function ChatPage() {
               }
             />
 
-            {/* TEXT INPUT */}
+            {/* TEXT */}
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}

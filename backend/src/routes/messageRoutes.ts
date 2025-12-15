@@ -1,33 +1,21 @@
 import { Router } from "express";
 import { authenticateToken } from "../middleware/authenticateToken";
+import upload from "../middleware/uploadMessage";
 import {
   getAllMessages,
   sendTextMessage,
-  uploadMessageFile,
+  uploadMessageImage,
 } from "../controllers/messageController";
-
-import { upload } from "../config/multer";
 
 const router = Router();
 
-// ===============================
-// GET ALL MESSAGES
-// ===============================
 router.get("/", authenticateToken, getAllMessages);
-
-// ===============================
-// SEND TEXT MESSAGE
-// ===============================
 router.post("/", authenticateToken, sendTextMessage);
-
-// ===============================
-// UPLOAD FILE MESSAGE
-// ===============================
 router.post(
   "/upload",
   authenticateToken,
-  upload.single("file"),
-  uploadMessageFile
+  upload.single("image"),
+  uploadMessageImage
 );
 
 export default router;
