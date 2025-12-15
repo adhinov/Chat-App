@@ -16,8 +16,7 @@ type Sender = {
 type Message = {
   id: number;
   text: string | null;
-  fileUrl?: string | null;
-  fileType?: string | null;
+  image?: string | null; // 🔥 cloudinary
   createdAt: string;
   sender: Sender;
 };
@@ -76,10 +75,18 @@ export default function ChatPage() {
 
         s.on("onlineCount", setOnlineCount);
 
+        // 🔥 FIX UTAMA DI SINI
         s.on("receive_message", (msg: Message) => {
-          setMessages((prev) =>
-            prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
-          );
+          setMessages((prev) => {
+            const idx = prev.findIndex((m) => m.id === msg.id);
+            if (idx !== -1) {
+              const updated = [...prev];
+              updated[idx] = msg; // replace data lama
+              return updated;
+            }
+            return [...prev, msg];
+          });
+
           scrollToBottom();
         });
 
@@ -90,7 +97,6 @@ export default function ChatPage() {
       }
     })();
 
-    // ✅ CLEANUP (WAJIB FUNCTION)
     return () => {
       s.off("onlineCount");
       s.off("receive_message");
@@ -136,8 +142,8 @@ export default function ChatPage() {
   // SEND IMAGE
   // =========================
   async function handleImageUpload(file: File) {
-  const formData = new FormData();
-  formData.append("image", file);
+    const formData = new FormData();
+    formData.append("image", file);
 
     const res = await fetch(`${API_URL}/api/messages/upload`, {
       method: "POST",
@@ -151,10 +157,16 @@ export default function ChatPage() {
 
     const msg: Message = await res.json();
 
-    // 🔥 TAMBAHKAN LANGSUNG KE UI
-    setMessages((prev) =>
-      prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
-    );
+    // 🔥 SYNC STATE (replace / add)
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === msg.id);
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated[idx] = msg;
+        return updated;
+      }
+      return [...prev, msg];
+    });
 
     scrollToBottom();
   }
@@ -248,9 +260,10 @@ export default function ChatPage() {
                     {mine ? "You" : m.sender.username}
                   </div>
 
-                  {m.fileUrl && m.fileType?.startsWith("image") && (
+                  {/* IMAGE */}
+                  {m.image && (
                     <img
-                      src={`${API_URL}${m.fileUrl}`}
+                      src={m.image}
                       alt="upload"
                       className="rounded-lg mb-2 max-h-60"
                     />
@@ -258,7 +271,6 @@ export default function ChatPage() {
 
                   {m.text && <div className="text-sm">{m.text}</div>}
 
-                  {/* JAM */}
                   <div className="text-[10px] text-gray-300 text-right mt-1">
                     {formatTime(m.createdAt)}
                   </div>
@@ -305,7 +317,6 @@ export default function ChatPage() {
               }
             />
 
-            {/* TEXT */}
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -314,7 +325,6 @@ export default function ChatPage() {
               className="flex-1 bg-transparent outline-none text-sm"
             />
 
-            {/* SEND */}
             <button
               onClick={handleSend}
               className="w-10 aspect-square rounded-full bg-[#ff6b35] flex items-center justify-center text-lg"
