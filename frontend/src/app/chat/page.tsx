@@ -14,11 +14,12 @@ type Sender = {
 };
 
 type Message = {
-  id: number;
+  id: number | string; // string untuk tempId
   text: string | null;
   image?: string | null;
   createdAt: string;
   sender: Sender;
+  pending?: boolean; // 🔥 indikator kirim
 };
 
 export default function ChatPage() {
@@ -79,18 +80,29 @@ export default function ChatPage() {
         s.on("onlineCount", setOnlineCount);
 
         s.on("receive_message", (msg: Message) => {
-          setMessages((prev) => {
-            const idx = prev.findIndex((m) => m.id === msg.id);
-            if (idx !== -1) {
-              const updated = [...prev];
-              updated[idx] = msg;
-              return updated;
-            }
-            return [...prev, msg];
-          });
+        setMessages((prev) => {
+          // cari optimistic message
+          const idx = prev.findIndex(
+            (m) =>
+              m.pending &&
+              m.text === msg.text &&
+              m.sender.id === msg.sender.id
+          );
 
-          scrollToBottom();
+          if (idx !== -1) {
+            const updated = [...prev];
+            updated[idx] = msg;
+            return updated;
+          }
+
+          // fallback
+          if (prev.some((m) => m.id === msg.id)) return prev;
+
+          return [...prev, msg];
         });
+
+        scrollToBottom();
+      });
 
         await fetchMessages(token);
       } catch (err) {
@@ -125,18 +137,48 @@ export default function ChatPage() {
   // SEND TEXT
   // =========================
   async function handleSend() {
-    if (!text.trim()) return;
+    if (!text.trim() || !me) return;
 
-    await fetch(`${API_URL}/api/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      body: JSON.stringify({ text }),
-    });
+    const tempId = `temp-${Date.now()}`;
 
+    // 🔥 optimistic message
+    const optimisticMsg: Message = {
+      id: tempId,
+      text,
+      image: null,
+      createdAt: new Date().toISOString(),
+      sender: me,
+      pending: true,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
     setText("");
+    scrollToBottom();
+
+    try {
+      const res = await fetch(`${API_URL}/api/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!res.ok) throw new Error("Failed");
+
+      const realMsg: Message = await res.json();
+
+      // 🔥 replace temp message with real one
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? realMsg : m))
+      );
+    } catch (err) {
+      console.error(err);
+
+      // ❌ gagal → hapus bubble
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
   }
 
   // =========================
