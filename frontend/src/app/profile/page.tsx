@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // =========================
   // FETCH PROFILE
@@ -45,7 +46,35 @@ export default function ProfilePage() {
   }, [router]);
 
   // =========================
-  // HANDLE AVATAR SELECT
+  // SAVE PROFILE
+  // =========================
+  async function handleSaveProfile() {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setSaving(true);
+
+    const res = await fetch(`${API_URL}/api/users/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ username, phone }),
+    });
+
+    setSaving(false);
+
+    if (!res.ok) {
+      alert("Gagal menyimpan profile");
+      return;
+    }
+
+    alert("Profile berhasil disimpan");
+  }
+
+  // =========================
+  // AVATAR SELECT
   // =========================
   function handleSelectAvatar(file: File) {
     if (!file.type.startsWith("image/")) return;
@@ -123,7 +152,9 @@ export default function ProfilePage() {
               type="file"
               accept="image/*"
               hidden
-              onChange={(e) => e.target.files && handleSelectAvatar(e.target.files[0])}
+              onChange={(e) =>
+                e.target.files && handleSelectAvatar(e.target.files[0])
+              }
             />
 
             <button
@@ -171,6 +202,17 @@ export default function ProfilePage() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full mt-1 px-4 py-2 rounded bg-[#0f1724] border border-[#ff6b35]/50 outline-none"
               />
+            </div>
+
+            {/* SAVE */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleSaveProfile}
+                disabled={saving}
+                className="w-1/2 py-3 rounded-xl bg-[#ff6b35] text-black font-semibold hover:opacity-90"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
             </div>
           </div>
         </div>

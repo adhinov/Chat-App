@@ -1,22 +1,36 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 
-export interface JwtUserPayload {
+/**
+ * Payload JWT yang kita simpan
+ */
+export interface JwtUserPayload extends JwtPayload {
   id: number;
   email: string;
   username: string;
   role: string;
 }
 
+/**
+ * Extend Request supaya punya req.user
+ */
+export interface AuthRequest extends Request {
+  user?: JwtUserPayload;
+}
+
+/**
+ * Middleware Auth JWT
+ */
 export const authenticateToken = (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
   }
 
   const token = authHeader.split(" ")[1];
@@ -27,11 +41,11 @@ export const authenticateToken = (
       process.env.JWT_SECRET as string
     ) as JwtUserPayload;
 
-    // inject user
-    (req as any).user = decoded;
+    // inject user ke request
+    req.user = decoded;
 
     next();
-  } catch {
-    return res.status(403).json({ message: "Invalid token" });
+  } catch (error) {
+    res.status(403).json({ message: "Invalid token" });
   }
 };

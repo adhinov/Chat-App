@@ -14,10 +14,11 @@ model User {
   phone     String?
   password  String?
   role      String    @default("USER")
+  avatar    String?   // ✅ AVATAR URL
   createdAt DateTime  @default(now())
   lastLogin DateTime?
 
-  Messages  Messages[]
+  messages  Messages[]
 }
 
 model Messages {
@@ -26,10 +27,10 @@ model Messages {
   senderId  Int
   createdAt DateTime @default(now())
 
-  // relasi
+  // relation
   sender    User     @relation(fields: [senderId], references: [id])
 
-  // === Tambahan untuk upload file ===
+  // === Upload file support ===
   fileUrl   String?
   fileName  String?
   fileType  String?
