@@ -3,17 +3,10 @@ import jwt from "jsonwebtoken";
 import { JwtUserPayload } from "../types/jwt";
 
 /**
- * Extend Express Request supaya punya req.user
- */
-export interface AuthRequest extends Request {
-  user?: JwtUserPayload;
-}
-
-/**
  * Middleware Auth JWT
  */
 export const authenticateToken = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
@@ -32,7 +25,7 @@ export const authenticateToken = (
       process.env.JWT_SECRET as string
     ) as JwtUserPayload;
 
-    // inject user ke request
+    // ✅ aman, karena Express.Request sudah di-augment
     req.user = decoded;
 
     next();

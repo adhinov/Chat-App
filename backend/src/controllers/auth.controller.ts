@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { AuthRequest } from "../middleware/authenticateToken";
 import prisma from "../config/prisma";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -132,7 +131,7 @@ export const login = async (
 
 /* ================= PROFILE ================= */
 export const getProfile = async (
-  req: AuthRequest,
+  req: Request,
   res: Response
 ): Promise<void> => {
   try {
@@ -165,4 +164,3 @@ export const getProfile = async (
     res.status(500).json({ message: "Server error" });
   }
 };
-
