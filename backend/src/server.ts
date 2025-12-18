@@ -4,7 +4,6 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import http from "http";
-import path from "path";
 import jwt from "jsonwebtoken";
 import { Server as SocketIOServer, Socket } from "socket.io";
 
@@ -50,15 +49,6 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ================================
-// STATIC UPLOADS (🔥 FIX FINAL)
-// ================================
-// akses via: http://HOST/uploads/messages/xxx.jpg
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "../uploads"))
-);
 
 // ================================
 // SOCKET.IO INIT

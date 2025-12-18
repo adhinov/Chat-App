@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../config/database";
+import cloudinary from "../config/cloudinary";
 
 /**
  * ================= UPDATE AVATAR =================
@@ -11,28 +12,36 @@ export const updateAvatar = async (
   res: Response
 ): Promise<void> => {
   try {
+    // 🔐 pastikan user sudah login
     if (!req.user) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
 
+    // 📸 pastikan file dikirim
     if (!req.file) {
       res.status(400).json({ message: "No file uploaded" });
       return;
     }
 
-    const avatarUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/uploads/avatar/${req.file.filename}`;
-
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { avatar: avatarUrl },
+    // ☁️ upload ke Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+      folder: process.env.CLOUDINARY_FOLDER || "chat_uploads/avatar",
+      resource_type: "image",
     });
 
+    // 💾 simpan URL cloudinary ke database
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        avatar: uploadResult.secure_url,
+      },
+    });
+
+    // ✅ response ke frontend
     res.json({
       message: "Avatar updated",
-      avatar: avatarUrl,
+      avatar: uploadResult.secure_url,
     });
   } catch (error) {
     console.error("Update avatar error:", error);

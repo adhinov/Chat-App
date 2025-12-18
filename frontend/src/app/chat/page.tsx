@@ -236,6 +236,11 @@ export default function ChatPage() {
     });
   }
 
+  function isValidImageUrl(url?: string | null) {
+  if (!url) return false;
+  return url.startsWith("http://") || url.startsWith("https://");
+  }
+
   // =========================
   // RENDER
   // =========================
@@ -330,10 +335,11 @@ export default function ChatPage() {
                     </div>
 
                     {/* IMAGE */}
-                    {m.image && (
+                    {isValidImageUrl(m.image) && (
                       <img
-                        src={m.image}
+                        src={m.image!}
                         alt="upload"
+                        loading="lazy"
                         onClick={() => setPreviewImage(m.image!)}
                         className="rounded-lg mb-2 max-h-60 cursor-pointer hover:opacity-90"
                       />
