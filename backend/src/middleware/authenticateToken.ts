@@ -1,18 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import { JwtUserPayload } from "../types/jwt";
 
 /**
- * Payload JWT yang kita simpan
- */
-export interface JwtUserPayload extends JwtPayload {
-  id: number;
-  email: string;
-  username: string;
-  role: string;
-}
-
-/**
- * Extend Request supaya punya req.user
+ * Extend Express Request supaya punya req.user
  */
 export interface AuthRequest extends Request {
   user?: JwtUserPayload;

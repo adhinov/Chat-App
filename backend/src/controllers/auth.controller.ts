@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
+import { AuthRequest } from "../middleware/authenticateToken";
+import prisma from "../config/prisma";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { prisma } from "../config/database";
-import {
-  JwtUserPayload,
-  AuthRequest,
-} from "../middleware/authenticateToken";
+import { JwtUserPayload } from "../types/jwt";
 
 /* ================= REGISTER ================= */
 export const register = async (
@@ -157,8 +155,8 @@ export const getProfile = async (
         id: user.id,
         email: user.email,
         username: user.username,
-        phone: user.phone,      // ✅ FIX
-        avatar: user.avatar,    // ✅ FIX
+        phone: user.phone,
+        avatar: user.avatar,
         role: user.role,
       },
     });
@@ -167,3 +165,4 @@ export const getProfile = async (
     res.status(500).json({ message: "Server error" });
   }
 };
+
