@@ -6,7 +6,7 @@ import cors from "cors";
 import http from "http";
 import jwt from "jsonwebtoken";
 import { Server as SocketIOServer, Socket } from "socket.io";
-
+import userRoutes from "./routes/user.routes";
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 import messageRoutes from "./routes/messageRoutes";
@@ -118,6 +118,7 @@ io.on("connection", (socket: Socket) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/users", userRoutes);
 
 // ROOT
 app.get("/", (_req, res) => {

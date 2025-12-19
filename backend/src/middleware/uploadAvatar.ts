@@ -1,47 +1,33 @@
-import multer, { FileFilterCallback } from "multer";
-import path from "path";
-import fs from "fs";
+import multer from "multer";
 import { Request } from "express";
 
-const uploadDir = path.join(process.cwd(), "uploads/avatar");
+// ===============================
+// MULTER CONFIG (MEMORY STORAGE)
+// ===============================
+const storage = multer.memoryStorage();
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (
-    _req: Request,
-    _file: Express.Multer.File,
-    cb: (error: Error | null, destination: string) => void
-  ) => {
-    cb(null, uploadDir);
-  },
-
-  filename: (
-    _req: Request,
-    file: Express.Multer.File,
-    cb: (error: Error | null, filename: string) => void
-  ) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `avatar-${Date.now()}${ext}`);
-  },
-});
-
+// ===============================
+// FILE FILTER (HANYA GAMBAR)
+// ===============================
 const fileFilter = (
   _req: Request,
   file: Express.Multer.File,
-  cb: FileFilterCallback
+  cb: multer.FileFilterCallback
 ) => {
-  if (!file.mimetype.startsWith("image/")) {
-    cb(new Error("Only image files allowed"));
-    return;
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Hanya file gambar yang diperbolehkan"));
   }
-  cb(null, true);
 };
 
+// ===============================
+// EXPORT MIDDLEWARE
+// ===============================
 export const uploadAvatar = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 2 * 1024 * 1024 },
-});
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB
+  },
+}).single("avatar");

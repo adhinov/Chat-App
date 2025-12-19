@@ -3,7 +3,9 @@ import jwt from "jsonwebtoken";
 import { JwtUserPayload } from "../types/jwt";
 
 /**
- * Middleware Auth JWT
+ * ================= AUTHENTICATE TOKEN (JWT) =================
+ * - Mengisi req.user dari JWT
+ * - req.user sudah di-augment via express.d.ts
  */
 export const authenticateToken = (
   req: Request,
@@ -25,11 +27,12 @@ export const authenticateToken = (
       process.env.JWT_SECRET as string
     ) as JwtUserPayload;
 
-    // ✅ aman, karena Express.Request sudah di-augment
+    // ✅ req.user AMAN karena express.d.ts
     req.user = decoded;
 
     next();
   } catch (error) {
-    res.status(403).json({ message: "Invalid token" });
+    console.error("JWT error:", error);
+    res.status(403).json({ message: "Invalid or expired token" });
   }
 };

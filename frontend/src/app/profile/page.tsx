@@ -114,8 +114,19 @@ export default function ProfilePage() {
     }
 
     const data = await res.json();
+
+    // ✅ update profile page
     setAvatar(data.avatar);
     setPreview(null);
+
+    // 🔥 sync ke chat
+    localStorage.setItem("avatar", data.avatar);
+
+    window.dispatchEvent(
+      new CustomEvent("avatar-updated", {
+        detail: data.avatar,
+      })
+    );
   }
 
   return (

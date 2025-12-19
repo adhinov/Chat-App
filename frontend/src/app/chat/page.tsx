@@ -73,11 +73,13 @@ export default function ChatPage() {
         }
 
         const data = await res.json();
+        const savedAvatar = localStorage.getItem("avatar");
+
         setMe({
           id: Number(data.user.id),
           username: data.user.username,
           email: data.user.email,
-          avatar: data.user.avatar || null,
+          avatar: savedAvatar || data.user.avatar || null,
         });
 
         s.on("onlineCount", setOnlineCount);
@@ -118,6 +120,26 @@ export default function ChatPage() {
       s.off("onlineCount");
       s.off("receive_message");
       s.disconnect();
+    };
+  }, []);
+
+  // =========================
+  // AVATAR SYNC FROM PROFILE
+  // =========================
+  useEffect(() => {
+    function handleAvatarUpdate(e: Event) {
+      const customEvent = e as CustomEvent<string>;
+      const newAvatar = customEvent.detail;
+
+      setMe((prev) =>
+        prev ? { ...prev, avatar: newAvatar } : prev
+      );
+    }
+
+    window.addEventListener("avatar-updated", handleAvatarUpdate);
+
+    return () => {
+      window.removeEventListener("avatar-updated", handleAvatarUpdate);
     };
   }, []);
 
