@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetchMe } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
 
@@ -98,7 +99,7 @@ export default function ProfilePage() {
     const formData = new FormData();
     formData.append("avatar", fileRef.current.files[0]);
 
-    const res = await fetch(`${API_URL}/api/users/avatar`, {
+    await fetch(`${API_URL}/api/users/avatar`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -106,27 +107,18 @@ export default function ProfilePage() {
       body: formData,
     });
 
-    setLoading(false);
+    // 🔥 ambil ulang user dari backend
+    const user = await fetchMe();
+    localStorage.setItem("user", JSON.stringify(user));
 
-    if (!res.ok) {
-      alert("Upload avatar gagal");
-      return;
-    }
-
-    const data = await res.json();
-
-    // ✅ update profile page
-    setAvatar(data.avatar);
-    setPreview(null);
-
-    // 🔥 sync ke chat
-    localStorage.setItem("avatar", data.avatar);
-
+    // 🔥 broadcast ke seluruh UI
     window.dispatchEvent(
-      new CustomEvent("avatar-updated", {
-        detail: data.avatar,
+      new CustomEvent("user-updated", {
+        detail: user,
       })
     );
+
+    setLoading(false);
   }
 
   return (

@@ -129,6 +129,31 @@ export const login = async (
   }
 };
 
+/* ================= GET ME ================= */
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar: true,
+        role: true,
+      },
+    });
+
+    res.json(user);
+  } catch (err) {
+    console.error("Get me error:", err);
+    res.status(500).json({ message: "Failed to fetch user" });
+  }
+};
+
 /* ================= PROFILE ================= */
 export const getProfile = async (
   req: Request,

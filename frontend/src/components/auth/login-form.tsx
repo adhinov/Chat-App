@@ -17,6 +17,25 @@ interface JwtPayload {
   role: string;
 }
 
+async function fetchMe(API_URL: string) {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    throw new Error("Token tidak ditemukan");
+  }
+
+  const res = await fetch(`${API_URL}/api/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Gagal mengambil data user");
+  }
+
+  return res.json();
+}
+
 const formSchema = z.object({
   phone: z
     .string()
@@ -72,26 +91,33 @@ export function LoginForm() {
           isLocalhost ? 'SameSite=Lax' : 'SameSite=None; Secure'
         }`;
 
-        // Backup token
-        localStorage.setItem('token', data.token);
+        // Simpan token (sudah benar)
+        localStorage.setItem("token", data.token);
 
-        // Decode JWT
-        const decoded = jwtDecode<JwtPayload>(data.token);
+        // 🔥 AMBIL USER ASLI DARI BACKEND
+        const user = await fetchMe(API_URL);
 
-        // NORMALISASI ROLE (fix utama)
-        const userRole = decoded.role?.toUpperCase();
-        console.log("Decoded role =", decoded.role, "→ Normalized =", userRole);
+        // 🔥 SIMPAN USER (PENTING!)
+        localStorage.setItem("user", JSON.stringify(user));
+
+        // 🔥 BROADCAST KE SELURUH APP
+        window.dispatchEvent(
+          new CustomEvent("user-updated", { detail: user })
+        );
+
+        // Role sekarang AMBIL DARI USER
+        const userRole = user.role?.toUpperCase();
 
         toast({
-          title: 'Success',
-          description: 'Logged in successfully!',
+          title: "Success",
+          description: "Logged in successfully!",
         });
 
-        // Redirect berdasarkan role
-        if (userRole === 'ADMIN') {
-          router.push('/admin-dashboard');
+        // Redirect
+        if (userRole === "ADMIN") {
+          router.push("/admin-dashboard");
         } else {
-          router.push('/chat');
+          router.push("/chat");
         }
       }
     } catch (err: any) {
