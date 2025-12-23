@@ -89,37 +89,48 @@ export default function ProfilePage() {
   // UPLOAD AVATAR
   // =========================
   async function handleUploadAvatar() {
-    if (!fileRef.current?.files?.[0]) return;
+  if (!fileRef.current?.files?.[0]) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) return;
+  const token = localStorage.getItem("token");
+  if (!token) return;
 
-    setLoading(true);
+  setLoading(true);
 
-    const formData = new FormData();
-    formData.append("avatar", fileRef.current.files[0]);
+  const formData = new FormData();
+  formData.append("avatar", fileRef.current.files[0]);
 
-    await fetch(`${API_URL}/api/users/avatar`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+  const res = await fetch(`${API_URL}/api/users/avatar`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
 
-    // 🔥 ambil ulang user dari backend
-    const user = await fetchMe();
-    localStorage.setItem("user", JSON.stringify(user));
-
-    // 🔥 broadcast ke seluruh UI
-    window.dispatchEvent(
-      new CustomEvent("user-updated", {
-        detail: user,
-      })
-    );
-
+  if (!res.ok) {
     setLoading(false);
+    alert("Gagal upload avatar");
+    return;
   }
+
+  // 🔥 ambil user terbaru
+  const user = await fetchMe();
+
+  // 🔥 update state UI
+  setAvatar(user.avatar);
+  setPreview(null);
+
+  // 🔥 reset file input
+  if (fileRef.current) fileRef.current.value = "";
+
+  // 🔥 sync global
+  localStorage.setItem("user", JSON.stringify(user));
+  window.dispatchEvent(
+    new CustomEvent("user-updated", { detail: user })
+  );
+
+  setLoading(false);
+}
 
   return (
     <div className="min-h-screen bg-[#0f1724] text-white flex items-center justify-center">
