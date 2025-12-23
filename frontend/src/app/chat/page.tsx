@@ -20,6 +20,7 @@ type Message = {
   image?: string | null;
   createdAt: string;
   sender: Sender;
+  pending?: boolean;
 };
 
 /* =========================
@@ -30,9 +31,8 @@ export default function ChatPage() {
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const socketRef = useRef<Socket | null>(null);
-  const tokenRef = useRef<string | null>(null);
+  const tokenRef = useRef<string>("");
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -53,7 +53,7 @@ export default function ChatPage() {
     if (socketRef.current) return;
 
     const token = localStorage.getItem("token");
-    if (typeof token !== "string") {
+    if (!token) {
       router.push("/");
       return;
     }
@@ -69,10 +69,10 @@ export default function ChatPage() {
 
     async function init() {
       try {
-        // ✅ GET ME
+        /* ===== GET ME ===== */
         const meRes = await fetch(`${API_URL}/api/auth/me`, {
           headers: {
-            Authorization: `Bearer ${tokenRef.current}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -84,13 +84,31 @@ export default function ChatPage() {
         const meData: Sender = await meRes.json();
         setMe(meData);
 
-        // ✅ SOCKET LISTENERS
+        /* ===== SOCKET LISTENERS ===== */
         socket.on("onlineCount", setOnlineCount);
 
         socket.on("receive_message", (msg: Message) => {
-          setMessages((prev) =>
-            prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]
-          );
+          setMessages((prev) => {
+            // replace optimistic
+            const idx = prev.findIndex(
+              (m) =>
+                m.pending &&
+                m.text === msg.text &&
+                m.sender.id === msg.sender.id
+            );
+
+            if (idx !== -1) {
+              const clone = [...prev];
+              clone[idx] = msg;
+              return clone;
+            }
+
+            // prevent duplicate
+            if (prev.some((m) => m.id === msg.id)) return prev;
+
+            return [...prev, msg];
+          });
+
           scrollToBottom();
         });
 
@@ -110,28 +128,15 @@ export default function ChatPage() {
   }, []);
 
   /* =========================
-     USER UPDATED LISTENER
-  ========================= */
-  useEffect(() => {
-    function handleUserUpdated(e: Event) {
-      const ev = e as CustomEvent<Sender>;
-      if (ev.detail) setMe(ev.detail);
-    }
-
-    window.addEventListener("user-updated", handleUserUpdated);
-    return () =>
-      window.removeEventListener("user-updated", handleUserUpdated);
-  }, []);
-
-  /* =========================
      FETCH HISTORY
   ========================= */
   async function fetchMessages() {
-    if (!tokenRef.current) return;
+    const token = tokenRef.current;
+    if (!token) return;
 
     const res = await fetch(`${API_URL}/api/messages`, {
       headers: {
-        Authorization: `Bearer ${tokenRef.current}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -143,16 +148,30 @@ export default function ChatPage() {
   }
 
   /* =========================
-     SEND TEXT
+     SEND TEXT (OPTIMISTIC)
   ========================= */
   async function handleSend() {
-    if (!text.trim() || !tokenRef.current) return;
+    if (!text.trim() || !me) return;
 
     const messageText = text;
     setText("");
 
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `temp-${Date.now()}`,
+        text: messageText,
+        image: null,
+        createdAt: new Date().toISOString(),
+        sender: me,
+        pending: true,
+      },
+    ]);
+
+    scrollToBottom();
+
     try {
-      const res = await fetch(`${API_URL}/api/messages`, {
+      await fetch(`${API_URL}/api/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -160,21 +179,17 @@ export default function ChatPage() {
         },
         body: JSON.stringify({ text: messageText }),
       });
-
-      if (!res.ok) throw new Error("Send failed");
-      // ✅ JANGAN setMessages
-      // socket akan broadcast
     } catch (err) {
       console.error("Send error:", err);
     }
   }
 
-
   /* =========================
      SEND IMAGE
   ========================= */
   async function handleImageUpload(file: File) {
-    if (!tokenRef.current) return;
+    const token = tokenRef.current;
+    if (!token) return;
 
     const formData = new FormData();
     formData.append("image", file);
@@ -182,11 +197,10 @@ export default function ChatPage() {
     await fetch(`${API_URL}/api/messages/upload`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${tokenRef.current}`,
+        Authorization: `Bearer ${token}`,
       },
       body: formData,
     });
-    // ❗ socket akan kirim message
   }
 
   /* =========================
@@ -210,7 +224,7 @@ export default function ChatPage() {
   }
 
   function isValidImageUrl(url?: string | null) {
-    return !!url && url.startsWith("http");
+    return typeof url === "string" && url.startsWith("http");
   }
 
   /* =========================
@@ -220,7 +234,8 @@ export default function ChatPage() {
     <>
       <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
         <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
-          {/* HEADER */}
+
+          {/* ================= HEADER ================= */}
           <div className="flex items-center justify-between p-4 border-b border-white/10 relative">
             <div className="flex items-center gap-3">
               <button
@@ -252,15 +267,18 @@ export default function ChatPage() {
 
             <button
               onClick={() => setMenuOpen((p) => !p)}
-              className="w-9 h-9 rounded-full bg-white/10"
+              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
             >
               ⚙️
             </button>
 
             {menuOpen && (
-              <div className="absolute right-4 top-14 bg-[#1f2937] rounded-xl overflow-hidden">
+              <div className="absolute right-4 top-14 bg-[#1f2937] rounded-xl overflow-hidden z-50">
                 <button
-                  onClick={() => router.push("/profile")}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    router.push("/profile");
+                  }}
                   className="block px-4 py-2 hover:bg-white/10 w-full text-left"
                 >
                   Edit Profile
@@ -278,7 +296,7 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* MESSAGES */}
+          {/* ================= MESSAGES ================= */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.map((m) => {
               const mine = isMine(m);
@@ -294,7 +312,7 @@ export default function ChatPage() {
                       mine
                         ? "bg-[#2563eb] rounded-br-none"
                         : "bg-[#1f2937] rounded-bl-none"
-                    }`}
+                    } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
                   >
                     <div className="text-xs text-gray-300 mb-1">
                       {mine ? "You" : m.sender.username}
@@ -323,30 +341,35 @@ export default function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
-          {/* INPUT */}
+          {/* ================= INPUT ================= */}
           <div className="p-3 border-t border-white/10">
-            <div className="flex items-center gap-2 bg-[#11172c] rounded-full px-2 h-12">
+            <div className="relative flex items-center gap-2 bg-[#11172c] rounded-full px-2 h-12">
+              {/* PLUS BUTTON */}
               <button
+                type="button"
                 onClick={() => setPlusOpen((p) => !p)}
-                className="w-9 h-9 rounded-full bg-white/10"
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
               >
                 +
               </button>
 
+              {/* DROPDOWN */}
               {plusOpen && (
-                <div className="absolute bottom-14 left-2 bg-[#1f2937] rounded-xl overflow-hidden">
+                <div className="absolute bottom-14 left-2 z-50 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden">
                   <button
+                    type="button"
                     onClick={() => {
                       setPlusOpen(false);
                       fileInputRef.current?.click();
                     }}
-                    className="px-4 py-2 hover:bg-white/10"
+                    className="px-4 py-2 hover:bg-white/10 text-sm w-full text-left"
                   >
                     📷 Upload Gambar
                   </button>
                 </div>
               )}
 
+              {/* FILE INPUT */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -358,19 +381,20 @@ export default function ChatPage() {
                 }}
               />
 
+              {/* TEXT INPUT */}
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === "Enter" && handleSend()
-                }
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Type message..."
                 className="flex-1 bg-transparent outline-none text-sm"
               />
 
+              {/* SEND */}
               <button
+                type="button"
                 onClick={handleSend}
-                className="w-10 h-10 rounded-full bg-[#ff6b35]"
+                className="w-10 h-10 rounded-full bg-[#ff6b35] flex items-center justify-center"
               >
                 ➤
               </button>
@@ -379,7 +403,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* IMAGE PREVIEW */}
+      {/* ================= IMAGE PREVIEW ================= */}
       {previewImage && (
         <div
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
