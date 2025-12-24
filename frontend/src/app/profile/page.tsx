@@ -15,12 +15,14 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  // =========================
-  // FETCH PROFILE
-  // =========================
+  /* =========================
+     FETCH PROFILE
+  ========================= */
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -46,9 +48,9 @@ export default function ProfilePage() {
     })();
   }, [router]);
 
-  // =========================
-  // SAVE PROFILE
-  // =========================
+  /* =========================
+     SAVE PROFILE
+  ========================= */
   async function handleSaveProfile() {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -74,9 +76,9 @@ export default function ProfilePage() {
     alert("Profile berhasil disimpan");
   }
 
-  // =========================
-  // AVATAR SELECT
-  // =========================
+  /* =========================
+     AVATAR SELECT
+  ========================= */
   function handleSelectAvatar(file: File) {
     if (!file.type.startsWith("image/")) return;
 
@@ -85,60 +87,65 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   }
 
-  // =========================
-  // UPLOAD AVATAR
-  // =========================
+  /* =========================
+     UPLOAD AVATAR
+  ========================= */
   async function handleUploadAvatar() {
-  if (!fileRef.current?.files?.[0]) return;
+    if (!fileRef.current?.files?.[0]) return;
 
-  const token = localStorage.getItem("token");
-  if (!token) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  const formData = new FormData();
-  formData.append("avatar", fileRef.current.files[0]);
+    const formData = new FormData();
+    formData.append("avatar", fileRef.current.files[0]);
 
-  const res = await fetch(`${API_URL}/api/users/avatar`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+    const res = await fetch(`${API_URL}/api/users/avatar`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      setLoading(false);
+      alert("Gagal upload avatar");
+      return;
+    }
+
+    // 🔥 ambil user terbaru
+    const user = await fetchMe();
+
+    // 🔥 update UI
+    setAvatar(user.avatar);
+    setPreview(null);
+
+    // 🔥 reset input
+    if (fileRef.current) fileRef.current.value = "";
+
+    // 🔥 sync global
+    localStorage.setItem("user", JSON.stringify(user));
+    window.dispatchEvent(
+      new CustomEvent("user-updated", { detail: user })
+    );
+
+    // 🔔 toast
+    setToast("Avatar updated");
+    setTimeout(() => setToast(null), 2500);
+
     setLoading(false);
-    alert("Gagal upload avatar");
-    return;
   }
-
-  // 🔥 ambil user terbaru
-  const user = await fetchMe();
-
-  // 🔥 update state UI
-  setAvatar(user.avatar);
-  setPreview(null);
-
-  // 🔥 reset file input
-  if (fileRef.current) fileRef.current.value = "";
-
-  // 🔥 sync global
-  localStorage.setItem("user", JSON.stringify(user));
-  window.dispatchEvent(
-    new CustomEvent("user-updated", { detail: user })
-  );
-
-  setLoading(false);
-}
 
   return (
     <div className="min-h-screen bg-[#0f1724] text-white flex items-center justify-center">
       <div className="w-full sm:max-w-2xl bg-[#101827] rounded-2xl p-6 shadow-lg">
-
         {/* HEADER */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold text-[#ff6b35]">User Profile</h1>
+          <h1 className="text-2xl font-semibold text-[#ff6b35]">
+            User Profile
+          </h1>
           <button
             onClick={() => router.push("/chat")}
             className="text-[#ff6b35] hover:opacity-80 text-sm"
@@ -148,7 +155,6 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-8">
-
           {/* AVATAR */}
           <div className="flex flex-col items-center gap-3">
             <div className="w-32 h-32 rounded-full bg-[#ff6b35] flex items-center justify-center text-4xl font-bold overflow-hidden">
@@ -171,18 +177,31 @@ export default function ProfilePage() {
               }
             />
 
+            {/* UPLOAD */}
             <button
+              disabled={loading}
               onClick={() => fileRef.current?.click()}
-              className="px-4 py-2 rounded-lg bg-[#ff6b35]/20 text-[#ff6b35] hover:bg-[#ff6b35]/30 text-sm"
+              className={`px-4 py-2 rounded-lg text-sm transition
+                ${
+                  loading
+                    ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+                    : "bg-[#ff6b35]/20 text-[#ff6b35] hover:bg-[#ff6b35]/30"
+                }`}
             >
               Upload
             </button>
 
+            {/* SAVE AVATAR */}
             {preview && (
               <button
                 disabled={loading}
                 onClick={handleUploadAvatar}
-                className="px-4 py-2 rounded-lg bg-[#ff6b35] text-black text-sm hover:opacity-90"
+                className={`px-4 py-2 rounded-lg text-sm transition
+                  ${
+                    loading
+                      ? "bg-gray-400 text-black cursor-not-allowed"
+                      : "bg-[#ff6b35] text-black hover:opacity-90"
+                  }`}
               >
                 {loading ? "Uploading..." : "Save Avatar"}
               </button>
@@ -218,7 +237,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* SAVE */}
+            {/* SAVE PROFILE */}
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleSaveProfile}
@@ -231,6 +250,13 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* TOAST */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-[#ff6b35] text-black text-sm shadow-lg animate-fade-in">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

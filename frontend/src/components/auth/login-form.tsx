@@ -109,8 +109,15 @@ export function LoginForm() {
         const userRole = user.role?.toUpperCase();
 
         toast({
-          title: "Success",
-          description: "Logged in successfully!",
+          title: undefined, // atau ""
+          description: (
+            <span>
+              Welcome to Chat Room,&nbsp;
+              <strong className="font-semibold text-foreground">
+                {user.username}
+              </strong>
+            </span>
+          ),
         });
 
         // Redirect

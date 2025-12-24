@@ -66,8 +66,15 @@ export function SignUpForm() {
       }
 
       toast({
-        title: "Success",
-        description: "Account created — redirecting...",
+        title: undefined,
+        description: (
+          <span>
+            Account created! Welcome,&nbsp;
+            <strong className="font-semibold text-blue-800">
+              {values.username}
+            </strong>
+          </span>
+        ),
       });
 
       // 🔥 langsung ke CHAT ROOM
