@@ -3,6 +3,7 @@ import prisma from "../config/prisma";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { JwtUserPayload } from "../types/jwt";
+import { Prisma } from "@prisma/client";
 
 /* ================= REGISTER ================= */
 export const register = async (
@@ -12,22 +13,16 @@ export const register = async (
   try {
     const { email, username, password, phone } = req.body;
 
-    if (!email || !username || !password) {
+    // 1️⃣ Basic validation
+    if (!email || !username || !password || !phone) {
       res.status(400).json({ message: "Data tidak lengkap" });
       return;
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existing) {
-      res.status(409).json({ message: "Email sudah terdaftar" });
-      return;
-    }
-
+    // 2️⃣ Hash password
     const hashed = await bcrypt.hash(password, 10);
 
+    // 3️⃣ Create user (Prisma handle UNIQUE)
     const user = await prisma.user.create({
       data: {
         email,
@@ -38,6 +33,7 @@ export const register = async (
       },
     });
 
+    // 4️⃣ Generate token (kalau memang mau auto-login)
     const token = jwt.sign(
       {
         id: user.id,
@@ -60,7 +56,40 @@ export const register = async (
         role: user.role,
       },
     });
-  } catch (error) {
+
+  } catch (error: any) {
+
+    // 🔥 INTI: HANDLE P2002 DI SINI
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        const targets = error.meta?.target as string[];
+
+        if (targets?.includes("email")) {
+          res.status(409).json({
+            field: "email",
+            message: "Email sudah terdaftar",
+          });
+          return;
+        }
+
+        if (targets?.includes("username")) {
+          res.status(409).json({
+            field: "username",
+            message: "Username sudah digunakan",
+          });
+          return;
+        }
+
+        if (targets?.includes("phone")) {
+          res.status(409).json({
+            field: "phone",
+            message: "Nomor HP sudah digunakan",
+          });
+          return;
+        }
+      }
+    }
+
     console.error("REGISTER ERROR:", error);
     res.status(500).json({ message: "Register failed" });
   }

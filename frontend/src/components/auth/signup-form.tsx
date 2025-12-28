@@ -49,18 +49,48 @@ export function SignUpForm() {
       const response = await fetch(`${API_URL}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: values.username,
-          email: values.email,
-          phone: values.phone,
-          password: values.password,
-        }),
+        body: JSON.stringify(values),
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.message || "Something went wrong");
 
-      // simpan token
+      // =========================
+      // HANDLE ERROR SPESIFIK
+      // =========================
+      if (!response.ok) {
+        if (data?.field === "username") {
+          toast({
+            title: "Gagal",
+            description: "Username sudah digunakan",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data?.field === "phone") {
+          toast({
+            title: "Gagal",
+            description: "Nomor HP sudah digunakan",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data?.field === "email") {
+          toast({
+            title: "Gagal",
+            description: "Email sudah terdaftar",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        throw new Error(data?.message || "Signup failed");
+      }
+
+      // =========================
+      // SUCCESS
+      // =========================
       if (data?.token) {
         localStorage.setItem("token", data.token);
       }
@@ -77,7 +107,6 @@ export function SignUpForm() {
         ),
       });
 
-      // 🔥 langsung ke CHAT ROOM
       setTimeout(() => {
         window.location.href = "/chat";
       }, 800);
