@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticateToken } from "../middleware/authenticateToken";
 import { uploadAvatar } from "../middleware/uploadAvatar";
-import { updateAvatar } from "../controllers/user.controller";
+import { updateAvatar, updateProfile } from "../controllers/user.controller";
 
 const router = Router();
 
@@ -10,6 +10,12 @@ router.post(
   authenticateToken,
   uploadAvatar,
   updateAvatar
+);
+
+router.put(
+  "/profile",
+  authenticateToken,
+  updateProfile
 );
 
 export default router;

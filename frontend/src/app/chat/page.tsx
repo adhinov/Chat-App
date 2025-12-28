@@ -236,7 +236,7 @@ export default function ChatPage() {
         <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
 
           {/* ================= HEADER ================= */}
-          <div className="flex items-center justify-between p-4 border-b border-black/10 relative bg-orange-400 text-black">
+          <div className="flex items-center justify-between p-4 border-b border-black/10 relative bg-[#f07346] text-black">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push("/profile")}

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../config/database";
 import cloudinary from "../config/cloudinary";
 import streamifier from "streamifier";
+import { Prisma } from "@prisma/client";
 
 export const updateAvatar = async (
   req: Request & { user?: { id: number } },
@@ -58,3 +59,68 @@ export const updateAvatar = async (
     res.status(500).json({ message: "Upload avatar failed" });
   }
 };
+
+export const updateProfile = async (
+  req: Request & { user?: { id: number } },
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { username, phone } = req.body;
+
+    if (!username || !phone) {
+      res.status(400).json({ message: "Username dan nomor HP wajib diisi" });
+      return;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        username,
+        phone,
+      },
+      select: {
+        id: true,
+        username: true,
+        phone: true,
+        avatar: true,
+      },
+    });
+
+    res.json({
+      message: "Profile updated",
+      user: updatedUser,
+    });
+  } catch (error: any) {
+    // 🔥 HANDLE UNIQUE CONSTRAINT (username / phone)
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        const targets = error.meta?.target as string[];
+
+        if (targets?.includes("username")) {
+          res.status(409).json({
+            field: "username",
+            message: "Username sudah digunakan",
+          });
+          return;
+        }
+
+        if (targets?.includes("phone")) {
+          res.status(409).json({
+            field: "phone",
+            message: "Nomor HP sudah digunakan",
+          });
+          return;
+        }
+      }
+    }
+
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Update profile failed" });
+  }
+};
+

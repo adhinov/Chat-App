@@ -20,6 +20,11 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  const [fieldError, setFieldError] = useState<{
+    username?: string;
+    phone?: string;
+  } | null>(null);
+
   /* =========================
      FETCH PROFILE
   ========================= */
@@ -56,24 +61,49 @@ export default function ProfilePage() {
     if (!token) return;
 
     setSaving(true);
+    setFieldError(null);
 
-    const res = await fetch(`${API_URL}/api/users/profile`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ username, phone }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/api/users/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username, phone }),
+      });
 
-    setSaving(false);
+      const data = await res.json();
 
-    if (!res.ok) {
-      alert("Gagal menyimpan profile");
-      return;
+      if (!res.ok) {
+        if (data?.error === "USERNAME_EXISTS") {
+          setFieldError({ username: "Username sudah digunakan" });
+          return;
+        }
+
+        if (data?.error === "PHONE_EXISTS") {
+          setFieldError({ phone: "Nomor sudah terdaftar" });
+          return;
+        }
+
+        throw new Error(data?.message || "Gagal menyimpan profile");
+      }
+
+      // 🔄 sync user terbaru
+      const user = await fetchMe();
+      localStorage.setItem("user", JSON.stringify(user));
+      window.dispatchEvent(
+        new CustomEvent("user-updated", { detail: user })
+      );
+
+      setToast("Profile updated");
+      setTimeout(() => setToast(null), 2500);
+    } catch (err: any) {
+      setToast(err.message || "Update failed");
+      setTimeout(() => setToast(null), 2500);
+    } finally {
+      setSaving(false);
     }
-
-    alert("Profile berhasil disimpan");
   }
 
   /* =========================
@@ -111,27 +141,23 @@ export default function ProfilePage() {
 
     if (!res.ok) {
       setLoading(false);
-      alert("Gagal upload avatar");
+      setToast("Gagal upload avatar");
+      setTimeout(() => setToast(null), 2500);
       return;
     }
 
-    // 🔥 ambil user terbaru
     const user = await fetchMe();
 
-    // 🔥 update UI
     setAvatar(user.avatar);
     setPreview(null);
 
-    // 🔥 reset input
     if (fileRef.current) fileRef.current.value = "";
 
-    // 🔥 sync global
     localStorage.setItem("user", JSON.stringify(user));
     window.dispatchEvent(
       new CustomEvent("user-updated", { detail: user })
     );
 
-    // 🔔 toast
     setToast("Avatar updated");
     setTimeout(() => setToast(null), 2500);
 
@@ -177,7 +203,6 @@ export default function ProfilePage() {
               }
             />
 
-            {/* UPLOAD */}
             <button
               disabled={loading}
               onClick={() => fileRef.current?.click()}
@@ -191,7 +216,6 @@ export default function ProfilePage() {
               Upload
             </button>
 
-            {/* SAVE AVATAR */}
             {preview && (
               <button
                 disabled={loading}
@@ -210,15 +234,27 @@ export default function ProfilePage() {
 
           {/* FORM */}
           <div className="flex-1 space-y-4">
+            {/* USERNAME */}
             <div>
               <label className="text-xs text-gray-400">Username</label>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full mt-1 px-4 py-2 rounded bg-[#0f1724] border border-[#ff6b35]/50 outline-none"
+                className={`w-full mt-1 px-4 py-2 rounded bg-[#0f1724] outline-none
+                  ${
+                    fieldError?.username
+                      ? "border border-red-500"
+                      : "border border-[#ff6b35]/50"
+                  }`}
               />
+              {fieldError?.username && (
+                <p className="text-xs text-red-400 mt-1">
+                  {fieldError.username}
+                </p>
+              )}
             </div>
 
+            {/* EMAIL */}
             <div>
               <label className="text-xs text-gray-400">Email</label>
               <input
@@ -228,21 +264,32 @@ export default function ProfilePage() {
               />
             </div>
 
+            {/* PHONE */}
             <div>
               <label className="text-xs text-gray-400">Phone</label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full mt-1 px-4 py-2 rounded bg-[#0f1724] border border-[#ff6b35]/50 outline-none"
+                className={`w-full mt-1 px-4 py-2 rounded bg-[#0f1724] outline-none
+                  ${
+                    fieldError?.phone
+                      ? "border border-red-500"
+                      : "border border-[#ff6b35]/50"
+                  }`}
               />
+              {fieldError?.phone && (
+                <p className="text-xs text-red-400 mt-1">
+                  {fieldError.phone}
+                </p>
+              )}
             </div>
 
-            {/* SAVE PROFILE */}
+            {/* SAVE */}
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleSaveProfile}
                 disabled={saving}
-                className="w-1/2 py-3 rounded-xl bg-[#ff6b35] text-black font-semibold hover:opacity-90"
+                className="w-1/2 py-3 rounded-xl bg-[#ff6b35] text-black font-semibold hover:opacity-90 disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
