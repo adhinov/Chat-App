@@ -236,7 +236,7 @@ export default function ChatPage() {
         <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
 
           {/* ================= HEADER ================= */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10 relative">
+          <div className="flex items-center justify-between p-4 border-b border-black/10 relative bg-orange-400 text-black">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push("/profile")}
@@ -259,7 +259,7 @@ export default function ChatPage() {
                 <div className="font-semibold">
                   Chat Room {me && `- ${me.username}`}
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-gray-700">
                   Online: {onlineCount}
                 </div>
               </div>
@@ -267,28 +267,29 @@ export default function ChatPage() {
 
             <button
               onClick={() => setMenuOpen((p) => !p)}
-              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-black/20 text-black"
             >
               ⚙️
             </button>
 
             {menuOpen && (
-              <div className="absolute right-4 top-14 bg-[#1f2937] rounded-xl overflow-hidden z-50">
+              <div className="absolute right-4 top-14 bg-[#1f2937] rounded-xl overflow-hidden z-50 min-w-[140px]">
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     router.push("/profile");
                   }}
-                  className="block px-4 py-2 hover:bg-white/10 w-full text-left"
+                  className="block px-4 py-2 text-sm text-gray-200 hover:bg-white/10 w-full text-left"
                 >
                   Edit Profile
                 </button>
+
                 <button
                   onClick={() => {
                     localStorage.removeItem("token");
                     router.push("/");
                   }}
-                  className="block px-4 py-2 text-red-400 hover:bg-white/10 w-full text-left"
+                  className="block px-4 py-2 text-sm text-red-400 hover:bg-white/10 w-full text-left"
                 >
                   Logout
                 </button>
