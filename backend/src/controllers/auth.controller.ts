@@ -118,17 +118,35 @@ export const login = async (
         : { phone: identifier },
     });
 
-    if (!user || !user.password) {
-      res.status(401).json({ message: "Invalid credentials" });
+    // ❌ USER TIDAK DITEMUKAN
+    if (!user) {
+      res.status(404).json({
+        code: "USER_NOT_FOUND",
+        message: "User belum terdaftar",
+      });
       return;
     }
 
+    // ❌ USER ADA TAPI BELUM SET PASSWORD (misal login Google only)
+    if (!user.password) {
+      res.status(401).json({
+        code: "PASSWORD_NOT_SET",
+        message: "Password belum disetel",
+      });
+      return;
+    }
+
+    // ❌ PASSWORD SALAH
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      res.status(401).json({ message: "Invalid credentials" });
+      res.status(401).json({
+        code: "INVALID_PASSWORD",
+        message: "Password salah",
+      });
       return;
     }
 
+    // ✅ SUCCESS
     const token = jwt.sign(
       {
         id: user.id,
