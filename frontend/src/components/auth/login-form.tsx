@@ -156,15 +156,25 @@ export function LoginForm() {
     }
   }
 
-  /* =========================
-     RENDER
-  ========================= */
-  return (
+/* =========================
+   RENDER
+========================= */
+return (
+  <div
+      className="
+      w-full max-w-[320px]
+      p-6
+      rounded-2xl
+      bg-[#0f1e35]
+      shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+        {/* SINGLE TITLE */}
+        <h2 className="text-2xl font-bold text-orange-500 text-center">
+          Login
+        </h2>
+
         {/* Phone / Email */}
         <FormField
           control={form.control}
@@ -172,72 +182,88 @@ export function LoginForm() {
           render={({ field }) => (
             <FormItem>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
                 <FormControl>
                   <Input
-                    placeholder="Phone Number or Email"
                     {...field}
-                    className="h-12 pl-10"
+                    placeholder="Phone number or email"
+                    className="h-12 pl-10 bg-transparent text-white border border-orange-500 focus-visible:ring-0"
                   />
                 </FormControl>
               </div>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
 
-        {/* Password */}
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <FormControl>
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Password"
-                    {...field}
-                    className="h-12 pl-10 pr-10"
-                  />
-                </FormControl>
+        {/* Password + Forgot */}
+        <div className="space-y-1">
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Password"
+                      className="h-12 pl-10 pr-10 bg-transparent text-white border border-orange-500 focus-visible:ring-0"
+                    />
+                  </FormControl>
 
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-500"
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </button>
+                </div>
+                <FormMessage className="text-red-400" />
+              </FormItem>
+            )}
+          />
 
-        {/* Forgot password */}
-        <div className="flex justify-end">
-          <Link
-            href="/forgot-password"
-            className="text-xs text-accent hover:underline"
-          >
-            Forgot password?
-          </Link>
+          {/* Forgot password */}
+          <div className="flex justify-end pr-1 -mt-1">
+            <Link
+              href="/forgot-password"
+              className="text-[11px] text-orange-400 hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
         </div>
 
+        {/* Submit */}
         <Button
           type="submit"
-          className="w-full h-12 text-base font-semibold"
-          disabled={isSubmitting}
+          className="
+            w-full h-12
+            bg-orange-500 hover:bg-orange-400
+            text-black
+            text-base font-semibold
+            rounded-lg
+          "
         >
-          {isSubmitting ? 'Logging in...' : 'Login'}
+          Login
         </Button>
+
+        {/* Sign up link */}
+        <div className="text-center text-sm text-gray-400 pt-2">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/signup"
+            className="font-semibold text-orange-500 hover:underline"
+          >
+            Sign up
+          </Link>
+        </div>
       </form>
     </Form>
-  );
+  </div>
+);
 }
