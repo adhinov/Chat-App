@@ -254,7 +254,14 @@ return (
             duration-200
           "
         >
-          Login
+          {isSubmitting ? (
+          <>
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
+            <span>Logging in...</span>
+          </>
+        ) : (
+          "Login"
+        )}
         </Button>
 
         {/* Sign up link */}
