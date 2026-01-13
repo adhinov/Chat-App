@@ -242,11 +242,16 @@ return (
         <Button
           type="submit"
           className="
-            w-full h-12
-            bg-orange-500 hover:bg-orange-400
-            text-black
-            text-base font-semibold
-            rounded-lg
+            w-full 
+            h-12 
+            bg-orange-500 
+            hover:bg-orange-400 
+            text-black 
+            font-bold 
+            text-lg
+            rounded-full
+            transition-all
+            duration-200
           "
         >
           Login

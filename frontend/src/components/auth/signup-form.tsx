@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { User, Mail, Phone, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 const formSchema = z.object({
   username: z.string().min(2, { message: "Username must be at least 2 characters." }),
@@ -122,8 +123,14 @@ export function SignUpForm() {
     }
   }
   return (
+  <div className="w-full max-w-[340px] bg-slate-900 rounded-2xl shadow-2xl p-7">
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+
+        {/* TITLE */}
+        <h2 className="text-2xl font-bold text-orange-500 text-center">
+          Sign Up
+        </h2>
 
         {/* Username */}
         <FormField
@@ -132,12 +139,16 @@ export function SignUpForm() {
           render={({ field }) => (
             <FormItem>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
                 <FormControl>
-                  <Input placeholder="Username" {...field} className="h-12 pl-10" />
+                  <Input
+                    {...field}
+                    placeholder="Username"
+                    className="h-12 pl-10 bg-transparent text-white border border-orange-500 focus-visible:ring-0"
+                  />
                 </FormControl>
               </div>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -149,17 +160,17 @@ export function SignUpForm() {
           render={({ field }) => (
             <FormItem>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
                 <FormControl>
                   <Input
-                    type="email"
-                    placeholder="Email Address"
                     {...field}
-                    className="h-12 pl-10"
+                    type="email"
+                    placeholder="Email address"
+                    className="h-12 pl-10 bg-transparent text-white border border-orange-500 focus-visible:ring-0"
                   />
                 </FormControl>
               </div>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -171,12 +182,16 @@ export function SignUpForm() {
           render={({ field }) => (
             <FormItem>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
                 <FormControl>
-                  <Input placeholder="Phone Number" {...field} className="h-12 pl-10" />
+                  <Input
+                    {...field}
+                    placeholder="Phone number"
+                    className="h-12 pl-10 bg-transparent text-white border border-orange-500 focus-visible:ring-0"
+                  />
                 </FormControl>
               </div>
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
@@ -188,47 +203,69 @@ export function SignUpForm() {
           render={({ field }) => (
             <FormItem>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-500" />
                 <FormControl>
                   <Input
+                    {...field}
                     type={showPassword ? "text" : "password"}
                     placeholder="Password"
-                    {...field}
-                    className="h-12 pl-10 pr-10"
+                    className="h-12 pl-10 pr-10 bg-transparent text-white border border-orange-500 focus-visible:ring-0"
                   />
                 </FormControl>
 
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-500"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  {showPassword ? <EyeOff /> : <Eye />}
                 </button>
               </div>
 
-              <p className="text-xs text-muted-foreground mt-2">
-                Password must be at least 8 characters.
+              <p className="text-[11px] text-orange-400 mt-1">
+                Password must be at least 8 characters
               </p>
 
-              <FormMessage />
+              <FormMessage className="text-red-400" />
             </FormItem>
           )}
         />
 
+        {/* SUBMIT */}
         <Button
           type="submit"
-          className="w-full !mt-6 h-12 text-base font-semibold"
           disabled={isSubmitting}
+          className="
+            w-full 
+            h-12 
+            bg-orange-500 
+            hover:bg-orange-400 
+            text-black 
+            font-bold 
+            text-lg 
+            rounded-full
+            transition-all
+            duration-200
+            !mt-6
+          "
         >
           {isSubmitting ? "Creating account..." : "Create Account"}
         </Button>
+        
+        {/* Back to login */}
+        <div className="mt-4 text-center">
+          <span className="text-sm text-gray-400">
+            Already have an account?{" "}
+          </span>
+          <Link
+            href="/login"
+            className="text-sm font-semibold text-orange-500 hover:underline"
+          >
+            Back to login
+          </Link>
+        </div>
       </form>
     </Form>
-  );
+  </div>
+);
 }
