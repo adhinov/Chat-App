@@ -165,7 +165,7 @@ return (
       w-full max-w-[320px]
       p-6
       rounded-2xl
-      bg-[#0f1e35]
+      bg-[#13233f]
       shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

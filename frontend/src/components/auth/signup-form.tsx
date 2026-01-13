@@ -122,8 +122,12 @@ export function SignUpForm() {
       setIsSubmitting(false);
     }
   }
+
+  /* =========================
+   RENDER
+  ========================= */
   return (
-  <div className="w-full max-w-[340px] bg-slate-900 rounded-2xl shadow-2xl p-7">
+  <div className="w-full max-w-[340px] bg-[#13233f] rounded-2xl shadow-[0_8px_20px_rgba(0,0,0,0.5)] p-7">
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
