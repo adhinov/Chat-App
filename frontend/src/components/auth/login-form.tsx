@@ -238,27 +238,30 @@ return (
           </div>
         </div>
 
-        {/* Submit */}
         <Button
           type="submit"
+          disabled={isSubmitting}
           className="
-            w-full 
-            h-12 
-            bg-orange-500 
-            hover:bg-orange-400 
-            text-black 
-            font-bold 
+            w-full
+            h-12
+            bg-orange-500
+            hover:bg-orange-400
+            text-black
+            font-bold
             text-lg
             rounded-full
             transition-all
             duration-200
+            disabled:opacity-90
           "
         >
           {isSubmitting ? (
-          <>
+          <div className="flex items-center justify-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
-            <span>Logging in...</span>
-          </>
+            <span className="text-black/40 font-medium tracking-wide blur-[0.3px]">
+              Logging in...
+            </span>
+          </div>
         ) : (
           "Login"
         )}
