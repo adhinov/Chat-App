@@ -229,194 +229,201 @@ export default function ChatPage() {
 
   /* =========================
      RENDER
-  ========================= */
-  return (
-    <>
-      <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
-        <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
+    ========================= */
+    return (
+      <>
+        <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
+          <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
 
-          {/* ================= HEADER ================= */}
-          <div className="flex items-center justify-between p-4 border-b border-black/10 relative bg-[#ff923e] text-black">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push("/profile")}
-                className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
-              >
-                {me?.avatar ? (
-                  <img
-                    src={me.avatar}
-                    className="w-full h-full object-cover"
-                    alt="avatar"
-                  />
-                ) : (
-                  <span className="font-bold">
-                    {me?.username?.charAt(0)}
-                  </span>
+            {/* ================= HEADER ================= */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#101827]">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => router.push("/profile")}
+                  className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
+                >
+                  {me?.avatar ? (
+                    <img
+                      src={me.avatar}
+                      className="w-full h-full object-cover"
+                      alt="avatar"
+                    />
+                  ) : (
+                    <span className="font-bold text-white">
+                      {me?.username?.charAt(0)}
+                    </span>
+                  )}
+                </button>
+
+                <div>
+                  <div className="font-semibold text-orange-400">
+                    Chat Room {me && `- ${me.username}`}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Online: {onlineCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* ===== GEAR + DROPDOWN (FIXED) ===== */}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen((p) => !p)}
+                  className="w-9 h-9 rounded-full bg-white/10 text-orange-400 hover:bg-white/20 transition"
+                >
+                  ⚙️
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 top-12 bg-[#1f2937] rounded-xl overflow-hidden z-50 min-w-[150px] shadow-xl">
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        router.push("/profile");
+                      }}
+                      className="block px-4 py-2 text-sm text-gray-200 hover:bg-white/10 w-full text-left"
+                    >
+                      Edit Profile
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem("token");
+                        router.push("/");
+                      }}
+                      className="block px-4 py-2 text-sm text-red-400 hover:bg-white/10 w-full text-left"
+                    >
+                      Logout
+                    </button>
+                  </div>
                 )}
-              </button>
-
-              <div>
-                <div className="font-semibold">
-                  Chat Room {me && `- ${me.username}`}
-                </div>
-                <div className="text-xs text-gray-700">
-                  Online: {onlineCount}
-                </div>
               </div>
             </div>
 
-            <button
-              onClick={() => setMenuOpen((p) => !p)}
-              className="w-9 h-9 rounded-full bg-black/20 text-black"
-            >
-              ⚙️
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-4 top-14 bg-[#1f2937] rounded-xl overflow-hidden z-50 min-w-[140px]">
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push("/profile");
-                  }}
-                  className="block px-4 py-2 text-sm text-gray-200 hover:bg-white/10 w-full text-left"
-                >
-                  Edit Profile
-                </button>
-
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    router.push("/");
-                  }}
-                  className="block px-4 py-2 text-sm text-red-400 hover:bg-white/10 w-full text-left"
-                >
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ================= MESSAGES ================= */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-            {messages.map((m) => {
-              const mine = isMine(m);
-              return (
-                <div
-                  key={m.id}
-                  className={`flex ${
-                    mine ? "justify-end" : "justify-start"
-                  }`}
-                >
+            {/* ================= MESSAGES ================= */}
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+              {messages.map((m) => {
+                const mine = isMine(m);
+                return (
                   <div
-                    className={`max-w-[75%] px-4 py-2 rounded-xl ${
-                      mine
-                        ? "bg-[#2563eb] rounded-br-none"
-                        : "bg-[#1f2937] rounded-bl-none"
-                    } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
+                    key={m.id}
+                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
                   >
-                    <div className="text-xs text-gray-300 mb-1">
+                    <div
+                      className={`max-w-[75%] px-4 py-2 rounded-xl ${
+                        mine
+                          ? "bg-[#2563eb] rounded-br-none"
+                          : "bg-[#1f2937] rounded-bl-none"
+                      } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
+                    >
+                    <div className={`text-xs mb-1 ${
+                      mine ? "text-gray-300" : "text-sky-400"
+                        }`}
+                    >
                       {mine ? "You" : m.sender.username}
                     </div>
 
-                    {isValidImageUrl(m.image) && (
-                      <img
-                        src={m.image as string}
-                        onClick={() =>
-                          setPreviewImage(m.image as string)
-                        }
-                        className="rounded-lg mb-2 max-h-60 cursor-pointer"
-                        alt="message"
-                      />
-                    )}
+                      {isValidImageUrl(m.image) && (
+                        <img
+                          src={m.image as string}
+                          onClick={() => setPreviewImage(m.image as string)}
+                          className="rounded-lg mb-2 max-h-60 cursor-pointer"
+                          alt="message"
+                        />
+                      )}
 
-                    {m.text && <div className="text-sm">{m.text}</div>}
+                      {m.text && <div className="text-sm">{m.text}</div>}
 
-                    <div className="text-[10px] text-gray-300 text-right mt-1">
-                      {formatTime(m.createdAt)}
+                      <div className="text-[10px] text-gray-300 text-right mt-1">
+                        {formatTime(m.createdAt)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
+                );
+              })}
+              <div ref={bottomRef} />
+            </div>
 
-          {/* ================= INPUT ================= */}
-          <div className="p-3 border-t border-white/10">
-            <div className="relative flex items-center gap-2 bg-[#11172c] rounded-full px-2 h-12">
-              {/* PLUS BUTTON */}
-              <button
-                type="button"
-                onClick={() => setPlusOpen((p) => !p)}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
-              >
-                +
-              </button>
+            {/* ================= INPUT ================= */}
+            <div className="p-3 border-t border-white/10">
+              <div className="flex items-center gap-2">
 
-              {/* DROPDOWN */}
-              {plusOpen && (
-                <div className="absolute bottom-14 left-2 z-50 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden">
+                {/* INPUT CIRCLE (PLUS + TEXT) */}
+                <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1">
+
+                  {/* PLUS BUTTON */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setPlusOpen(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="px-4 py-2 hover:bg-white/10 text-sm w-full text-left"
+                    onClick={() => setPlusOpen((p) => !p)}
+                    className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
                   >
-                    📷 Upload Gambar
+                    +
                   </button>
+
+                  {/* PLUS DROPDOWN */}
+                  {plusOpen && (
+                    <div className="absolute bottom-14 left-2 z-50 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPlusOpen(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="px-4 py-2 hover:bg-white/10 text-sm w-full text-left"
+                      >
+                        📷 Upload Gambar
+                      </button>
+                    </div>
+                  )}
+
+                  {/* FILE INPUT */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                    }}
+                  />
+
+                  {/* TEXT INPUT */}
+                  <input
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    placeholder="Type message..."
+                    className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-gray-400"
+                  />
                 </div>
-              )}
 
-              {/* FILE INPUT */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(file);
-                }}
-              />
-
-              {/* TEXT INPUT */}
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Type message..."
-                className="flex-1 bg-transparent outline-none text-sm"
-              />
-
-              {/* SEND */}
-              <button
-                type="button"
-                onClick={handleSend}
-                className="w-10 h-10 rounded-full bg-[#ff6b35] flex items-center justify-center"
-              >
-                ➤
-              </button>
+                {/* SEND BUTTON (OUTSIDE CIRCLE) */}
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  className="w-12 h-12 rounded-full bg-[#ff6b35] flex items-center justify-center hover:bg-[#ff7a4a] transition"
+                >
+                  ➤
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ================= IMAGE PREVIEW ================= */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
-          onClick={() => setPreviewImage(null)}
-        >
-          <img
-            src={previewImage}
-            className="max-w-[90%] max-h-[90%] rounded-xl"
-            alt="preview"
-          />
-        </div>
-      )}
-    </>
-  );
-}
+        {/* ================= IMAGE PREVIEW ================= */}
+        {previewImage && (
+          <div
+            className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
+            onClick={() => setPreviewImage(null)}
+          >
+            <img
+              src={previewImage}
+              className="max-w-[90%] max-h-[90%] rounded-xl"
+              alt="preview"
+            />
+          </div>
+        )}
+      </>
+    );
+    }
