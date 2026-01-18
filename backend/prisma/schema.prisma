@@ -8,17 +8,22 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  username  String?   @unique
-  phone     String?   @unique
-  password  String?
-  role      String    @default("USER")
-  avatar    String?
-  createdAt DateTime  @default(now())
-  lastLogin DateTime?
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  username       String?   @unique
+  phone          String?   @unique
+  password       String?
+  role           String    @default("USER")
+  avatar         String?
 
-  messages  Messages[]
+  createdAt      DateTime  @default(now())
+
+  // 🔑 LOGIN TRACKING
+  lastLogin      DateTime?
+  previousLogin  DateTime?
+
+  // relations
+  messages       Messages[]
 }
 
 model Messages {

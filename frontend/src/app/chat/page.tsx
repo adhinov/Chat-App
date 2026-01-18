@@ -23,6 +23,15 @@ type Message = {
   pending?: boolean;
 };
 
+type CurrentUser = {
+  id: number;
+  username: string;
+  email?: string;
+  avatar?: string | null;
+  role?: string;
+  previousLogin?: string | null;
+};
+
 /* =========================
    COMPONENT
 ========================= */
@@ -36,7 +45,7 @@ export default function ChatPage() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
-  const [me, setMe] = useState<Sender | null>(null);
+  const [me, setMe] = useState<CurrentUser | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,6 +54,15 @@ export default function ChatPage() {
 
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
+
+  /* =========================
+     LOGOUT
+  ========================= */
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    socketRef.current?.disconnect();
+    router.push("/");
+  };
 
   /* =========================
      INIT (AUTH + SOCKET)
@@ -69,7 +87,6 @@ export default function ChatPage() {
 
     async function init() {
       try {
-        /* ===== GET ME ===== */
         const meRes = await fetch(`${API_URL}/api/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -81,15 +98,13 @@ export default function ChatPage() {
           return;
         }
 
-        const meData: Sender = await meRes.json();
+        const meData: CurrentUser = await meRes.json();
         setMe(meData);
 
-        /* ===== SOCKET LISTENERS ===== */
         socket.on("onlineCount", setOnlineCount);
 
         socket.on("receive_message", (msg: Message) => {
           setMessages((prev) => {
-            // replace optimistic
             const idx = prev.findIndex(
               (m) =>
                 m.pending &&
@@ -103,7 +118,6 @@ export default function ChatPage() {
               return clone;
             }
 
-            // prevent duplicate
             if (prev.some((m) => m.id === msg.id)) return prev;
 
             return [...prev, msg];
@@ -148,7 +162,7 @@ export default function ChatPage() {
   }
 
   /* =========================
-     SEND TEXT (OPTIMISTIC)
+     SEND TEXT
   ========================= */
   async function handleSend() {
     if (!text.trim() || !me) return;
@@ -163,7 +177,11 @@ export default function ChatPage() {
         text: messageText,
         image: null,
         createdAt: new Date().toISOString(),
-        sender: me,
+        sender: {
+          id: me.id,
+          username: me.username,
+          avatar: me.avatar,
+        },
         pending: true,
       },
     ]);
@@ -223,207 +241,188 @@ export default function ChatPage() {
     });
   }
 
+  function formatLastLogin(date?: string | null) {
+    if (!date) return "First login";
+    return new Date(date).toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   function isValidImageUrl(url?: string | null) {
     return typeof url === "string" && url.startsWith("http");
   }
 
   /* =========================
      RENDER
-    ========================= */
-    return (
-      <>
-        <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
-          <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
+  ========================= */
+  return (
+    <>
+      <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
+        <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
 
-            {/* ================= HEADER ================= */}
-            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#101827]">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => router.push("/profile")}
-                  className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
-                >
-                  {me?.avatar ? (
-                    <img
-                      src={me.avatar}
-                      className="w-full h-full object-cover"
-                      alt="avatar"
-                    />
-                  ) : (
-                    <span className="font-bold text-white">
-                      {me?.username?.charAt(0)}
-                    </span>
-                  )}
-                </button>
-
-                <div>
-                  <div className="font-semibold text-orange-400">
-                    Chat Room {me && `- ${me.username}`}
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Online: {onlineCount}
-                  </div>
-                </div>
-              </div>
-
-              {/* ===== GEAR + DROPDOWN (FIXED) ===== */}
-              <div className="relative">
-                <button
-                  onClick={() => setMenuOpen((p) => !p)}
-                  className="w-9 h-9 rounded-full bg-white/10 text-orange-400 hover:bg-white/20 transition"
-                >
-                  ⚙️
-                </button>
-
-                {menuOpen && (
-                  <div className="absolute right-0 top-12 bg-[#1f2937] rounded-xl overflow-hidden z-50 min-w-[150px] shadow-xl">
-                    <button
-                      onClick={() => {
-                        setMenuOpen(false);
-                        router.push("/profile");
-                      }}
-                      className="block px-4 py-2 text-sm text-gray-200 hover:bg-white/10 w-full text-left"
-                    >
-                      Edit Profile
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        localStorage.removeItem("token");
-                        router.push("/");
-                      }}
-                      className="block px-4 py-2 text-sm text-red-400 hover:bg-white/10 w-full text-left"
-                    >
-                      Logout
-                    </button>
-                  </div>
+          {/* ================= HEADER ================= */}
+          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#101827]">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/profile")}
+                className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
+              >
+                {me?.avatar ? (
+                  <img src={me.avatar} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-bold">
+                    {me?.username?.charAt(0)}
+                  </span>
                 )}
+              </button>
+
+              <div>
+                <div className="font-semibold text-orange-400">
+                  Chat Room {me && `- ${me.username}`}
+                </div>
+
+                <div className="text-xs text-gray-400 flex gap-1">
+                  <span>Online: {onlineCount}</span>
+                  <span>-</span>
+                  <span>Last Login: {formatLastLogin(me?.previousLogin)}</span>
+                </div>
               </div>
             </div>
 
-            {/* ================= MESSAGES ================= */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-              {messages.map((m) => {
-                const mine = isMine(m);
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
+            {/* ===== GEAR ===== */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((p) => !p)}
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20"
+              >
+                ⚙️
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden z-50">
+                  <button
+                    onClick={() => router.push("/profile")}
+                    className="block w-full text-left px-4 py-2 text-sm hover:bg-white/10"
                   >
-                    <div
-                      className={`max-w-[75%] px-4 py-2 rounded-xl ${
-                        mine
-                          ? "bg-[#2563eb] rounded-br-none"
-                          : "bg-[#1f2937] rounded-bl-none"
-                      } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
-                    >
-                    <div className={`text-xs mb-1 ${
-                      mine ? "text-gray-300" : "text-sky-400"
-                        }`}
-                    >
+                    Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ================= MESSAGES ================= */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+            {messages.map((m) => {
+              const mine = isMine(m);
+              return (
+                <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`max-w-[75%] px-4 py-2 rounded-xl ${
+                      mine
+                        ? "bg-[#2563eb] rounded-br-none"
+                        : "bg-[#1f2937] rounded-bl-none"
+                    } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
+                  >
+                    <div className="text-xs mb-1 text-gray-300">
                       {mine ? "You" : m.sender.username}
                     </div>
 
-                      {isValidImageUrl(m.image) && (
-                        <img
-                          src={m.image as string}
-                          onClick={() => setPreviewImage(m.image as string)}
-                          className="rounded-lg mb-2 max-h-60 cursor-pointer"
-                          alt="message"
-                        />
-                      )}
+                    {isValidImageUrl(m.image) && (
+                      <img
+                        src={m.image!}
+                        onClick={() => setPreviewImage(m.image!)}
+                        className="rounded-lg mb-2 max-h-60 cursor-pointer"
+                      />
+                    )}
 
-                      {m.text && <div className="text-sm">{m.text}</div>}
+                    {m.text && <div className="text-sm">{m.text}</div>}
 
-                      <div className="text-[10px] text-gray-300 text-right mt-1">
-                        {formatTime(m.createdAt)}
-                      </div>
+                    <div className="text-[10px] text-right text-gray-300 mt-1">
+                      {formatTime(m.createdAt)}
                     </div>
                   </div>
-                );
-              })}
-              <div ref={bottomRef} />
-            </div>
-
-            {/* ================= INPUT ================= */}
-            <div className="p-3 border-t border-white/10">
-              <div className="flex items-center gap-2">
-
-                {/* INPUT CIRCLE (PLUS + TEXT) */}
-                <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1">
-
-                  {/* PLUS BUTTON */}
-                  <button
-                    type="button"
-                    onClick={() => setPlusOpen((p) => !p)}
-                    className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
-                  >
-                    +
-                  </button>
-
-                  {/* PLUS DROPDOWN */}
-                  {plusOpen && (
-                    <div className="absolute bottom-14 left-2 z-50 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPlusOpen(false);
-                          fileInputRef.current?.click();
-                        }}
-                        className="px-4 py-2 hover:bg-white/10 text-sm w-full text-left"
-                      >
-                        📷 Upload Gambar
-                      </button>
-                    </div>
-                  )}
-
-                  {/* FILE INPUT */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file);
-                    }}
-                  />
-
-                  {/* TEXT INPUT */}
-                  <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                    placeholder="Type message..."
-                    className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-gray-400"
-                  />
                 </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
 
-                {/* SEND BUTTON (OUTSIDE CIRCLE) */}
+          {/* ================= INPUT ================= */}
+          <div className="p-3 border-t border-white/10">
+            <div className="flex items-center gap-2">
+              <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1">
                 <button
-                  type="button"
-                  onClick={handleSend}
-                  className="w-12 h-12 rounded-full bg-[#ff6b35] flex items-center justify-center hover:bg-[#ff7a4a] transition"
+                  onClick={() => setPlusOpen((p) => !p)}
+                  className="w-9 h-9 rounded-full bg-white/10"
                 >
-                  ➤
+                  +
                 </button>
+
+                {plusOpen && (
+                  <div className="absolute bottom-14 left-2 bg-[#1f2937] rounded-xl shadow-lg z-50">
+                    <button
+                      onClick={() => {
+                        setPlusOpen(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="px-4 py-2 text-sm hover:bg-white/10"
+                    >
+                      📷 Upload Gambar
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImageUpload(f);
+                  }}
+                />
+
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  placeholder="Type message..."
+                  className="flex-1 bg-transparent outline-none text-sm"
+                />
               </div>
+
+              <button
+                onClick={handleSend}
+                className="w-12 h-12 rounded-full bg-[#ff6b35]"
+              >
+                ➤
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ================= IMAGE PREVIEW ================= */}
-        {previewImage && (
-          <div
-            className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
-            onClick={() => setPreviewImage(null)}
-          >
-            <img
-              src={previewImage}
-              className="max-w-[90%] max-h-[90%] rounded-xl"
-              alt="preview"
-            />
-          </div>
-        )}
-      </>
-    );
-    }
+      {/* ================= IMAGE PREVIEW ================= */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
+          onClick={() => setPreviewImage(null)}
+        >
+          <img src={previewImage} className="max-w-[90%] max-h-[90%] rounded-xl" />
+        </div>
+      )}
+    </>
+  );
+}

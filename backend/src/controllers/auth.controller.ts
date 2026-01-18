@@ -13,16 +13,13 @@ export const register = async (
   try {
     const { email, username, password, phone } = req.body;
 
-    // 1️⃣ Basic validation
     if (!email || !username || !password || !phone) {
       res.status(400).json({ message: "Data tidak lengkap" });
       return;
     }
 
-    // 2️⃣ Hash password
     const hashed = await bcrypt.hash(password, 10);
 
-    // 3️⃣ Create user (Prisma handle UNIQUE)
     const user = await prisma.user.create({
       data: {
         email,
@@ -33,7 +30,6 @@ export const register = async (
       },
     });
 
-    // 4️⃣ Generate token (kalau memang mau auto-login)
     const token = jwt.sign(
       {
         id: user.id,
@@ -56,35 +52,23 @@ export const register = async (
         role: user.role,
       },
     });
-
   } catch (error: any) {
-
-    // 🔥 INTI: HANDLE P2002 DI SINI
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002") {
         const targets = error.meta?.target as string[];
 
         if (targets?.includes("email")) {
-          res.status(409).json({
-            field: "email",
-            message: "Email sudah terdaftar",
-          });
+          res.status(409).json({ field: "email", message: "Email sudah terdaftar" });
           return;
         }
 
         if (targets?.includes("username")) {
-          res.status(409).json({
-            field: "username",
-            message: "Username sudah digunakan",
-          });
+          res.status(409).json({ field: "username", message: "Username sudah digunakan" });
           return;
         }
 
         if (targets?.includes("phone")) {
-          res.status(409).json({
-            field: "phone",
-            message: "Nomor HP sudah digunakan",
-          });
+          res.status(409).json({ field: "phone", message: "Nomor HP sudah digunakan" });
           return;
         }
       }
@@ -103,22 +87,19 @@ export const login = async (
   try {
     const { identifier, password } = req.body;
 
+    // 1️⃣ VALIDATION
     if (!identifier || !password) {
-      res.status(400).json({
-        message: "Identifier & password required",
-      });
+      res.status(400).json({ message: "Identifier & password required" });
       return;
     }
 
     const isEmail = identifier.includes("@");
 
+    // 2️⃣ FIND USER
     const user = await prisma.user.findFirst({
-      where: isEmail
-        ? { email: identifier }
-        : { phone: identifier },
+      where: isEmail ? { email: identifier } : { phone: identifier },
     });
 
-    // ❌ USER TIDAK DITEMUKAN
     if (!user) {
       res.status(404).json({
         code: "USER_NOT_FOUND",
@@ -127,7 +108,6 @@ export const login = async (
       return;
     }
 
-    // ❌ USER ADA TAPI BELUM SET PASSWORD (misal login Google only)
     if (!user.password) {
       res.status(401).json({
         code: "PASSWORD_NOT_SET",
@@ -136,7 +116,7 @@ export const login = async (
       return;
     }
 
-    // ❌ PASSWORD SALAH
+    // 3️⃣ CHECK PASSWORD
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       res.status(401).json({
@@ -146,7 +126,22 @@ export const login = async (
       return;
     }
 
-    // ✅ SUCCESS
+    // =========================
+    // 🔑 LOGIN TRACKING (BENAR)
+    // =========================
+
+    // SIMPAN LAST LOGIN LAMA (ini previous login)
+    const previousLogin = user.lastLogin;
+
+    // UPDATE LOGIN SEKARANG
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLogin: new Date(),
+      },
+    });
+
+    // 4️⃣ GENERATE TOKEN
     const token = jwt.sign(
       {
         id: user.id,
@@ -158,6 +153,7 @@ export const login = async (
       { expiresIn: "7d" }
     );
 
+    // 5️⃣ RESPONSE
     res.json({
       message: "Login success",
       token,
@@ -168,6 +164,9 @@ export const login = async (
         phone: user.phone,
         avatar: user.avatar,
         role: user.role,
+
+        // 👇 YANG DIKIRIM KE UI = LOGIN SEBELUMNYA
+        lastLogin: previousLogin,
       },
     });
   } catch (error) {
@@ -191,6 +190,7 @@ export const getMe = async (req: Request, res: Response) => {
         email: true,
         avatar: true,
         role: true,
+        lastLogin: true,
       },
     });
 
@@ -229,6 +229,7 @@ export const getProfile = async (
         phone: user.phone,
         avatar: user.avatar,
         role: user.role,
+        lastLogin: user.lastLogin,
       },
     });
   } catch (error) {
