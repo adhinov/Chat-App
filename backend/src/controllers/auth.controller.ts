@@ -6,10 +6,7 @@ import { JwtUserPayload } from "../types/jwt";
 import { Prisma } from "@prisma/client";
 
 /* ================= REGISTER ================= */
-export const register = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, username, password, phone } = req.body;
 
@@ -80,97 +77,80 @@ export const register = async (
 };
 
 /* ================= LOGIN ================= */
-export const login = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { identifier, password } = req.body;
 
-    // 1️⃣ VALIDATION
-    if (!identifier || !password) {
-      res.status(400).json({ message: "Identifier & password required" });
-      return;
-    }
-
-    const isEmail = identifier.includes("@");
-
-    // 2️⃣ FIND USER
     const user = await prisma.user.findFirst({
-      where: isEmail ? { email: identifier } : { phone: identifier },
+      where: identifier.includes("@")
+        ? { email: identifier }
+        : { phone: identifier },
     });
 
-    if (!user) {
-      res.status(404).json({
-        code: "USER_NOT_FOUND",
-        message: "User belum terdaftar",
-      });
+    if (!user || !user.password) {
+      res.status(401).json({ message: "Invalid credentials" });
       return;
     }
 
-    if (!user.password) {
-      res.status(401).json({
-        code: "PASSWORD_NOT_SET",
-        message: "Password belum disetel",
-      });
-      return;
-    }
-
-    // 3️⃣ CHECK PASSWORD
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      res.status(401).json({
-        code: "INVALID_PASSWORD",
-        message: "Password salah",
-      });
+      res.status(401).json({ message: "Invalid credentials" });
       return;
     }
 
-    // =========================
-    // 🔑 LOGIN TRACKING (BENAR)
-    // =========================
-
-    // SIMPAN LAST LOGIN LAMA (ini previous login)
+    /* =========================
+       🔑 LOGIN TRACKING (FIXED)
+    ========================= */
+    const now = new Date();
     const previousLogin = user.lastLogin;
 
-    // UPDATE LOGIN SEKARANG
+    console.log("🟡 LOGIN ATTEMPT:", {
+      userId: user.id,
+      username: user.username,
+      previousLogin,
+      now,
+    });
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        lastLogin: new Date(),
+        previousLogin: previousLogin, // ⬅️ DISIMPAN KE DB
+        lastLogin: now,
       },
     });
 
-    // 4️⃣ GENERATE TOKEN
+    console.log("🟢 LOGIN UPDATED:", {
+      userId: user.id,
+      previousLoginSaved: previousLogin,
+      lastLoginSetTo: now,
+    });
+
     const token = jwt.sign(
       {
         id: user.id,
-        email: user.email,
         username: user.username,
+        email: user.email,
         role: user.role,
-      } as JwtUserPayload,
+      },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" }
     );
 
-    // 5️⃣ RESPONSE
     res.json({
-      message: "Login success",
       token,
       user: {
         id: user.id,
-        email: user.email,
         username: user.username,
-        phone: user.phone,
+        email: user.email,
         avatar: user.avatar,
         role: user.role,
 
-        // 👇 YANG DIKIRIM KE UI = LOGIN SEBELUMNYA
-        lastLogin: previousLogin,
+        // ⬅️ UI pakai ini
+        previousLogin,
       },
     });
-  } catch (error) {
-    console.error("LOGIN ERROR:", error);
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Login failed" });
   }
 };
@@ -179,33 +159,37 @@ export const login = async (
 export const getMe = async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
+      res.status(401).json({ message: "Unauthorized" });
+      return;
     }
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
         id: true,
-        username: true,
         email: true,
+        username: true,
+        phone: true,
         avatar: true,
         role: true,
-        lastLogin: true,
+        previousLogin: true, // ⬅️ INI YANG DIPAKAI UI
       },
     });
 
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
     res.json(user);
-  } catch (err) {
-    console.error("Get me error:", err);
-    res.status(500).json({ message: "Failed to fetch user" });
+  } catch (error) {
+    console.error("GET ME ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 /* ================= PROFILE ================= */
-export const getProfile = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const getProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ message: "Unauthorized" });

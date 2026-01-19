@@ -23,12 +23,14 @@ type Message = {
   pending?: boolean;
 };
 
-type CurrentUser = {
+export type CurrentUser = {
   id: number;
+  email: string;
   username: string;
-  email?: string;
+  phone?: string | null;
   avatar?: string | null;
-  role?: string;
+  role: string;
+
   previousLogin?: string | null;
 };
 
@@ -65,7 +67,7 @@ export default function ChatPage() {
   };
 
   /* =========================
-     INIT (AUTH + SOCKET)
+   INIT (AUTH + SOCKET) - FIX
   ========================= */
   useEffect(() => {
     if (socketRef.current) return;
@@ -85,24 +87,37 @@ export default function ChatPage() {
 
     socketRef.current = socket;
 
+    // 🔥 helper fetch me (dipakai ulang)
+    const fetchMe = async () => {
+      const res = await fetch(`${API_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+      });
+
+      if (!res.ok) {
+        router.push("/");
+        return;
+      }
+
+      const data: CurrentUser = await res.json();
+      setMe(data);
+    };
+
     async function init() {
       try {
-        const meRes = await fetch(`${API_URL}/api/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        // 1️⃣ Ambil data user pertama kali
+        await fetchMe();
 
-        if (!meRes.ok) {
-          router.push("/");
-          return;
-        }
-
-        const meData: CurrentUser = await meRes.json();
-        setMe(meData);
-
+        // 2️⃣ Online count
         socket.on("onlineCount", setOnlineCount);
 
+        // 3️⃣ 🔥 PENTING: refresh ME setelah socket connect
+        socket.on("connect", async () => {
+          await fetchMe(); // ⬅️ INI KUNCI LAST LOGIN
+        });
+
+        // 4️⃣ Message handler
         socket.on("receive_message", (msg: Message) => {
           setMessages((prev) => {
             const idx = prev.findIndex(
@@ -141,10 +156,10 @@ export default function ChatPage() {
     };
   }, []);
 
-  /* =========================
-     FETCH HISTORY
-  ========================= */
-  async function fetchMessages() {
+    /* =========================
+      FETCH HISTORY
+    ========================= */
+    async function fetchMessages() {
     const token = tokenRef.current;
     if (!token) return;
 
@@ -154,12 +169,12 @@ export default function ChatPage() {
       },
     });
 
-    if (!res.ok) return;
+      if (!res.ok) return;
 
-    const data: Message[] = await res.json();
-    setMessages(data);
-    scrollToBottom();
-  }
+      const data: Message[] = await res.json();
+      setMessages(data);
+      scrollToBottom();
+    }
 
   /* =========================
      SEND TEXT
@@ -236,20 +251,23 @@ export default function ChatPage() {
 
   function formatTime(date: string) {
     return new Date(date).toLocaleTimeString("id-ID", {
+      timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
     });
   }
 
   function formatLastLogin(date?: string | null) {
-    if (!date) return "First login";
+    if (!date) return "First Login";
+
     return new Date(date).toLocaleString("id-ID", {
+      timeZone: "Asia/Jakarta",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    });
+    }) + " WIB";
   }
 
   function isValidImageUrl(url?: string | null) {
@@ -286,10 +304,12 @@ export default function ChatPage() {
                 </div>
 
                 <div className="text-xs text-gray-400 flex gap-1">
-                  <span>Online: {onlineCount}</span>
-                  <span>-</span>
-                  <span>Last Login: {formatLastLogin(me?.previousLogin)}</span>
-                </div>
+                <span>Online: {onlineCount}</span>
+                <span>-</span>
+                <span>
+                  Last Login: {formatLastLogin(me?.previousLogin)}
+                </span>
+              </div>
               </div>
             </div>
 
