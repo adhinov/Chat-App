@@ -303,13 +303,15 @@ export default function ChatPage() {
                   Chat Room {me && `- ${me.username}`}
                 </div>
 
-                <div className="text-xs text-gray-400 flex gap-1">
-                <span>Online: {onlineCount}</span>
-                <span>-</span>
-                <span>
-                  Last Login: {formatLastLogin(me?.previousLogin)}
-                </span>
-              </div>
+                <div className="text-xs flex gap-1">
+                  <span className="text-yellow-200 font-semibold">
+                    Online: {onlineCount}
+                  </span>
+                  <span className="text-gray-400">-</span>
+                  <span className="text-gray-400">
+                    Last Login: {formatLastLogin(me?.previousLogin)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -354,7 +356,11 @@ export default function ChatPage() {
                         : "bg-[#1f2937] rounded-bl-none"
                     } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
                   >
-                    <div className="text-xs mb-1 text-gray-300">
+                    <div
+                      className={`text-xs mb-1 ${
+                        mine ? "text-gray-300" : "text-blue-400 font-semibold"
+                      }`}
+                    >
                       {mine ? "You" : m.sender.username}
                     </div>
 
