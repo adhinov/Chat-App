@@ -302,12 +302,11 @@ export default function ChatPage() {
                 <div className="font-semibold text-orange-400">
                   Chat Room {me && `- ${me.username}`}
                 </div>
-
-                <div className="text-xs flex gap-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1 text-[11px] sm:text-xs leading-tight">
                   <span className="text-yellow-200 font-semibold">
                     Online: {onlineCount}
                   </span>
-                  <span className="text-gray-400">-</span>
+                  <span className="hidden sm:inline text-gray-400">-</span>
                   <span className="text-gray-400">
                     Last Login: {formatLastLogin(me?.previousLogin)}
                   </span>
