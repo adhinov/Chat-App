@@ -7,14 +7,17 @@ import cloudinary from "../config/cloudinary";
 // ===============================
 const normalize = (m: any) => ({
   id: m.id,
+
   sender: {
     id: m.sender?.id,
     username: m.sender?.username,
     email: m.sender?.email,
+    avatar: m.sender?.avatar || null, // 🔥 INI KUNCI
   },
+
   text: m.text || null,
 
-  // 🔥 frontend pakai `image`
+  // frontend pakai `image`
   image: m.fileUrl || null,
 
   createdAt: m.createdAt,
@@ -29,7 +32,12 @@ export const getAllMessages = async (_req: Request, res: Response) => {
       orderBy: { createdAt: "asc" },
       include: {
         sender: {
-          select: { id: true, username: true, email: true },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            avatar: true, // 🔥 WAJIB
+          },
         },
       },
     });
@@ -65,7 +73,12 @@ export const sendTextMessage = async (req: Request, res: Response) => {
       },
       include: {
         sender: {
-          select: { id: true, username: true, email: true },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            avatar: true, // 🔥 WAJIB
+          },
         },
       },
     });
@@ -98,7 +111,7 @@ export const uploadMessageImage = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Image required" });
     }
 
-    // 🔥 upload ke Cloudinary
+    // upload ke Cloudinary
     const uploadResult = await cloudinary.uploader.upload(file.path, {
       folder: "chat-images",
       resource_type: "image",
@@ -107,11 +120,7 @@ export const uploadMessageImage = async (req: Request, res: Response) => {
     const msg = await prisma.messages.create({
       data: {
         senderId: user.id,
-
-        // image message → text NULL
         text: null,
-
-        // 🔥 URL PUBLIC CLOUDINARY
         fileUrl: uploadResult.secure_url,
         fileName: file.originalname,
         fileType: file.mimetype,
@@ -119,7 +128,12 @@ export const uploadMessageImage = async (req: Request, res: Response) => {
       },
       include: {
         sender: {
-          select: { id: true, username: true, email: true },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            avatar: true, // 🔥 WAJIB
+          },
         },
       },
     });

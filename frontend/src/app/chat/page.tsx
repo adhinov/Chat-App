@@ -354,8 +354,35 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.map((m) => {
               const mine = isMine(m);
+
+              // ✅ AMANKAN IMAGE URL (ANTI null ERROR)
+              const imageUrl =
+                typeof m.image === "string" && m.image.startsWith("http")
+                  ? m.image
+                  : undefined;
+
               return (
-                <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={m.id}
+                  className={`flex items-start gap-2 ${
+                    mine ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  {/* ===== AVATAR (USER LAIN) ===== */}
+                  {!mine && (
+                    <div className="w-8 h-8 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center text-xs font-bold shrink-0">
+                      {m.sender.avatar ? (
+                        <img
+                          src={m.sender.avatar}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        m.sender.username.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                  )}
+
+                  {/* ===== CHAT BUBBLE ===== */}
                   <div
                     className={`max-w-[75%] px-4 py-2 rounded-xl ${
                       mine
@@ -363,6 +390,7 @@ export default function ChatPage() {
                         : "bg-[#1f2937] rounded-bl-none"
                     } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
                   >
+                    {/* ===== USERNAME ===== */}
                     <div
                       className={`text-xs mb-1 ${
                         mine ? "text-gray-300" : "text-blue-400 font-semibold"
@@ -371,16 +399,19 @@ export default function ChatPage() {
                       {mine ? "You" : m.sender.username}
                     </div>
 
-                    {isValidImageUrl(m.image) && (
+                    {/* ===== IMAGE ===== */}
+                    {imageUrl && (
                       <img
-                        src={m.image!}
-                        onClick={() => setPreviewImage(m.image!)}
+                        src={imageUrl}
+                        onClick={() => setPreviewImage(imageUrl)}
                         className="rounded-lg mb-2 max-h-60 cursor-pointer"
                       />
                     )}
 
+                    {/* ===== TEXT ===== */}
                     {m.text && <div className="text-sm">{m.text}</div>}
 
+                    {/* ===== TIME ===== */}
                     <div className="text-[10px] text-right text-gray-300 mt-1">
                       {formatTime(m.createdAt)}
                     </div>
