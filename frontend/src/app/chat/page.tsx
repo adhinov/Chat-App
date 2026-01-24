@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 /* =========================
    TYPES
@@ -23,14 +24,12 @@ type Message = {
   pending?: boolean;
 };
 
-export type CurrentUser = {
+type CurrentUser = {
   id: number;
   email: string;
   username: string;
-  phone?: string | null;
   avatar?: string | null;
   role: string;
-
   previousLogin?: string | null;
 };
 
@@ -40,8 +39,8 @@ export type CurrentUser = {
 export default function ChatPage() {
   const router = useRouter();
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const tokenRef = useRef<string>("");
 
@@ -54,20 +53,16 @@ export default function ChatPage() {
   const [plusOpen, setPlusOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // 🔥 UPLOAD STATE
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
 
   /* =========================
-     LOGOUT
-  ========================= */
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    socketRef.current?.disconnect();
-    router.push("/");
-  };
-
-  /* =========================
-   INIT (AUTH + SOCKET) - FIX
+     INIT SOCKET + AUTH
   ========================= */
   useEffect(() => {
     if (socketRef.current) return;
@@ -87,65 +82,32 @@ export default function ChatPage() {
 
     socketRef.current = socket;
 
-    // 🔥 helper fetch me (dipakai ulang)
     const fetchMe = async () => {
       const res = await fetch(`${API_URL}/api/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${tokenRef.current}`,
-        },
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
       });
-
-      if (!res.ok) {
-        router.push("/");
-        return;
-      }
-
-      const data: CurrentUser = await res.json();
-      setMe(data);
+      if (!res.ok) return router.push("/");
+      setMe(await res.json());
     };
 
     async function init() {
-      try {
-        // 1️⃣ Ambil data user pertama kali
-        await fetchMe();
+      await fetchMe();
 
-        // 2️⃣ Online count
-        socket.on("onlineCount", setOnlineCount);
+      socket.on("onlineCount", setOnlineCount);
 
-        // 3️⃣ 🔥 PENTING: refresh ME setelah socket connect
-        socket.on("connect", async () => {
-          await fetchMe(); // ⬅️ INI KUNCI LAST LOGIN
+      socket.on("receive_message", (msg: Message) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
         });
+        scrollToBottom();
+      });
 
-        // 4️⃣ Message handler
-        socket.on("receive_message", (msg: Message) => {
-          setMessages((prev) => {
-            const idx = prev.findIndex(
-              (m) =>
-                m.pending &&
-                m.text === msg.text &&
-                m.sender.id === msg.sender.id
-            );
-
-            if (idx !== -1) {
-              const clone = [...prev];
-              clone[idx] = msg;
-              return clone;
-            }
-
-            if (prev.some((m) => m.id === msg.id)) return prev;
-
-            return [...prev, msg];
-          });
-
-          scrollToBottom();
-        });
-
-        await fetchMessages();
-      } catch (err) {
-        console.error("Init error:", err);
-        router.push("/");
-      }
+      const res = await fetch(`${API_URL}/api/messages`, {
+        headers: { Authorization: `Bearer ${tokenRef.current}` },
+      });
+      setMessages(await res.json());
+      scrollToBottom();
     }
 
     init();
@@ -156,84 +118,82 @@ export default function ChatPage() {
     };
   }, []);
 
-    /* =========================
-      FETCH HISTORY
-    ========================= */
-    async function fetchMessages() {
-    const token = tokenRef.current;
-    if (!token) return;
-
-    const res = await fetch(`${API_URL}/api/messages`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-      if (!res.ok) return;
-
-      const data: Message[] = await res.json();
-      setMessages(data);
-      scrollToBottom();
-    }
-
   /* =========================
      SEND TEXT
   ========================= */
   async function handleSend() {
     if (!text.trim() || !me) return;
 
-    const messageText = text;
+    const tempId = `temp-${Date.now()}`;
+    const msgText = text;
     setText("");
 
     setMessages((prev) => [
       ...prev,
       {
-        id: `temp-${Date.now()}`,
-        text: messageText,
+        id: tempId,
+        text: msgText,
         image: null,
         createdAt: new Date().toISOString(),
-        sender: {
-          id: me.id,
-          username: me.username,
-          avatar: me.avatar,
-        },
+        sender: { id: me.id, username: me.username, avatar: me.avatar },
         pending: true,
       },
     ]);
 
     scrollToBottom();
 
-    try {
-      await fetch(`${API_URL}/api/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tokenRef.current}`,
-        },
-        body: JSON.stringify({ text: messageText }),
-      });
-    } catch (err) {
-      console.error("Send error:", err);
-    }
+    await fetch(`${API_URL}/api/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenRef.current}`,
+      },
+      body: JSON.stringify({ text: msgText }),
+    });
   }
 
   /* =========================
-     SEND IMAGE
+   SEND IMAGE (WITH PROGRESS)
   ========================= */
   async function handleImageUpload(file: File) {
-    const token = tokenRef.current;
-    if (!token) return;
+    if (!me || !tokenRef.current) return;
 
-    const formData = new FormData();
-    formData.append("image", file);
+    const preview = URL.createObjectURL(file);
+    setPreviewUrl(preview);
+    setIsUploading(true);
+    setUploadProgress(0);
 
-    await fetch(`${API_URL}/api/messages/upload`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+    try {
+      const formData = new FormData();
+      formData.append("image", file); // ⬅️ HARUS "image"
+
+      const res = await axios.post(
+        `${API_URL}/api/messages/upload`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${tokenRef.current}`,
+          },
+          onUploadProgress: (e) => {
+            if (!e.total) return;
+            setUploadProgress(Math.round((e.loaded * 100) / e.total));
+          },
+        }
+      );
+
+      // ⬇️ kirim message ke socket setelah upload sukses
+      socketRef.current?.emit("sendMessage", {
+        image: res.data.imageUrl,
+        text: "",
+      });
+    } catch (err) {
+      console.error("Upload image error:", err);
+      alert("Upload gambar gagal");
+    } finally {
+      setIsUploading(false);
+      setPreviewUrl(null);
+      setUploadProgress(0);
+    }
   }
 
   /* =========================
@@ -246,37 +206,37 @@ export default function ChatPage() {
   }
 
   function isMine(msg: Message) {
-    return !!me && msg.sender.id === me.id;
+    return msg.sender.id === me?.id;
   }
 
   function formatTime(date: string) {
     return new Date(date).toLocaleTimeString("id-ID", {
-      timeZone: "Asia/Jakarta",
       hour: "2-digit",
       minute: "2-digit",
     });
   }
 
+  /* =========================
+     RENDER
+  ========================= */
   function formatLastLogin(date?: string | null) {
-    if (!date) return "First Login";
+    if (!date) return "-";
 
-    return new Date(date).toLocaleString("id-ID", {
-      timeZone: "Asia/Jakarta",
+    const d = new Date(date);
+    return d.toLocaleString("id-ID", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    }) + " WIB";
+    });
   }
 
-  function isValidImageUrl(url?: string | null) {
-    return typeof url === "string" && url.startsWith("http");
+  function handleLogout() {
+    localStorage.removeItem("token");
+    router.push("/login");
   }
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
     <>
       <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
@@ -354,8 +314,6 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {messages.map((m) => {
               const mine = isMine(m);
-
-              // ✅ AMANKAN IMAGE URL (ANTI null ERROR)
               const imageUrl =
                 typeof m.image === "string" && m.image.startsWith("http")
                   ? m.image
@@ -368,38 +326,21 @@ export default function ChatPage() {
                     mine ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {/* ===== AVATAR (USER LAIN) ===== */}
                   {!mine && (
-                    <div className="w-8 h-8 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center text-xs font-bold shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 overflow-hidden flex items-center justify-center text-xs font-bold">
                       {m.sender.avatar ? (
-                        <img
-                          src={m.sender.avatar}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={m.sender.avatar} className="w-full h-full object-cover" />
                       ) : (
-                        m.sender.username.charAt(0).toUpperCase()
+                        m.sender.username[0]
                       )}
                     </div>
                   )}
 
-                  {/* ===== CHAT BUBBLE ===== */}
                   <div
                     className={`max-w-[75%] px-4 py-2 rounded-xl ${
-                      mine
-                        ? "bg-[#2563eb] rounded-br-none"
-                        : "bg-[#1f2937] rounded-bl-none"
-                    } ${m.pending ? "opacity-60 animate-pulse" : ""}`}
+                      mine ? "bg-blue-600" : "bg-[#1f2937]"
+                    } ${m.pending ? "opacity-60" : ""}`}
                   >
-                    {/* ===== USERNAME ===== */}
-                    <div
-                      className={`text-xs mb-1 ${
-                        mine ? "text-gray-300" : "text-blue-400 font-semibold"
-                      }`}
-                    >
-                      {mine ? "You" : m.sender.username}
-                    </div>
-
-                    {/* ===== IMAGE ===== */}
                     {imageUrl && (
                       <img
                         src={imageUrl}
@@ -408,11 +349,9 @@ export default function ChatPage() {
                       />
                     )}
 
-                    {/* ===== TEXT ===== */}
                     {m.text && <div className="text-sm">{m.text}</div>}
 
-                    {/* ===== TIME ===== */}
-                    <div className="text-[10px] text-right text-gray-300 mt-1">
+                    <div className="text-[10px] text-right opacity-70 mt-1">
                       {formatTime(m.createdAt)}
                     </div>
                   </div>
@@ -422,54 +361,52 @@ export default function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
+          {/* ================= PREVIEW UPLOAD ================= */}
+          {previewUrl && (
+            <div className="px-3 pb-2">
+              <div className="relative w-32 h-32">
+                <img src={previewUrl} className="rounded-xl w-full h-full object-cover" />
+                {isUploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
+                    <div className="w-12 h-12 rounded-full border-4 border-white/30 border-t-white animate-spin" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ================= INPUT ================= */}
           <div className="p-3 border-t border-white/10">
             <div className="flex items-center gap-2">
-              <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1">
-                <button
-                  onClick={() => setPlusOpen((p) => !p)}
-                  className="w-9 h-9 rounded-full bg-white/10"
-                >
-                  +
-                </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-9 h-9 rounded-full bg-white/10"
+              >
+                +
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleImageUpload(f);
+                }}
+              />
 
-                {plusOpen && (
-                  <div className="absolute bottom-14 left-2 bg-[#1f2937] rounded-xl shadow-lg z-50">
-                    <button
-                      onClick={() => {
-                        setPlusOpen(false);
-                        fileInputRef.current?.click();
-                      }}
-                      className="px-4 py-2 text-sm hover:bg-white/10"
-                    >
-                      📷 Upload Gambar
-                    </button>
-                  </div>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  hidden
-                  accept="image/*"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleImageUpload(f);
-                  }}
-                />
-
-                <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Type message..."
-                  className="flex-1 bg-transparent outline-none text-sm"
-                />
-              </div>
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="Type message..."
+                className="flex-1 bg-[#30374f] rounded-full px-4 h-12 outline-none text-sm"
+              />
 
               <button
                 onClick={handleSend}
-                className="w-12 h-12 rounded-full bg-[#ff6b35]"
+                className="w-12 h-12 rounded-full bg-orange-500"
               >
                 ➤
               </button>
@@ -478,7 +415,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ================= IMAGE PREVIEW ================= */}
+      {/* ================= IMAGE MODAL ================= */}
       {previewImage && (
         <div
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
