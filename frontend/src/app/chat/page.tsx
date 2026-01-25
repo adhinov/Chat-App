@@ -341,6 +341,14 @@ export default function ChatPage() {
                       mine ? "bg-blue-600" : "bg-[#1f2937]"
                     } ${m.pending ? "opacity-60" : ""}`}
                   >
+                    {/* USERNAME / YOU */}
+                    <div
+                      className={`text-xs font-semibold mb-1 ${
+                        mine ? "text-right text-blue-300" : "text-blue-400"
+                      }`}
+                    >
+                      {mine ? "You" : m.sender.username}
+                    </div>
                     {imageUrl && (
                       <img
                         src={imageUrl}
