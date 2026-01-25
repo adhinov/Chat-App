@@ -50,7 +50,7 @@ export default function ChatPage() {
   const [onlineCount, setOnlineCount] = useState(0);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [plusOpen, setPlusOpen] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // 🔥 UPLOAD STATE
@@ -96,7 +96,7 @@ export default function ChatPage() {
       socket.on("onlineCount", setOnlineCount);
 
       socket.on("receive_message", (msg: Message) => {
-        setMessages((prev) => {
+        setMessages((prev: Message[]) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
@@ -128,14 +128,18 @@ export default function ChatPage() {
     const msgText = text;
     setText("");
 
-    setMessages((prev) => [
+    setMessages((prev: Message[]) => [
       ...prev,
       {
         id: tempId,
         text: msgText,
         image: null,
         createdAt: new Date().toISOString(),
-        sender: { id: me.id, username: me.username, avatar: me.avatar },
+        sender: { 
+          id: me.id, 
+          username: me.username, 
+          avatar: me.avatar 
+        },
         pending: true,
       },
     ]);
@@ -285,7 +289,7 @@ export default function ChatPage() {
             {/* ===== GEAR ===== */}
             <div className="relative">
               <button
-                onClick={() => setMenuOpen((p) => !p)}
+                onClick={() => setMenuOpen((p: boolean) => !p)}
                 className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20"
               >
                 ⚙️
@@ -386,23 +390,29 @@ export default function ChatPage() {
           {/* ================= INPUT ================= */}
           <div className="p-3 border-t border-white/10">
             <div className="flex items-center gap-2">
+              <div className="relative">
               <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-9 h-9 rounded-full bg-white/10"
+                onClick={() => setShowPlusMenu((prev: boolean) => !prev)}
+                className="w-10 h-10 rounded-full bg-[#1f2937] hover:bg-[#374151] flex items-center justify-center text-xl"
               >
                 +
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleImageUpload(f);
-                }}
-              />
+
+              {/* DROPDOWN */}
+              {showPlusMenu && (
+                <div className="absolute bottom-12 left-0 bg-[#111827] border border-white/10 rounded-lg shadow-lg w-44 z-50">
+                  <button
+                    onClick={() => {
+                      setShowPlusMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full px-4 py-2 text-sm text-left hover:bg-white/10"
+                  >
+                    📷 Upload Picture
+                  </button>
+                </div>
+              )}
+            </div>
 
               <input
                 value={text}
@@ -422,6 +432,18 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          handleImageUpload(file);
+          e.target.value = ""; // reset biar bisa upload file sama lagi
+        }}
+      />
 
       {/* ================= IMAGE MODAL ================= */}
       {previewImage && (
