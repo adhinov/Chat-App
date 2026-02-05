@@ -33,6 +33,7 @@
     "@types/socket.io": "^3.0.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "eslint": "^9.39.2",
     "express": "^5.2.1",
     "mongoose": "^8.19.3",
     "prisma": "^6.19.0",

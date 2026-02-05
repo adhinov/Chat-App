@@ -1,0 +1,30 @@
+{
+  // ... setting lain yang sudah ada, JANGAN DIHAPUS ...
+  
+  // Tambahkan atau edit yang ini:
+  "files.autoSave": "onFocusChange",
+  "editor.minimap.enabled": false,
+  "editor.codeLens": false,
+  "editor.formatOnSave": false,
+  "editor.quickSuggestions": {
+    "other": "off",
+    "comments": "off",
+    "strings": "off"
+  },
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "update.mode": "none",
+  "terminal.integrated.gpuAcceleration": "off",
+  "search.followSymlinks": false,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.next/**": true
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true
+  }
+}

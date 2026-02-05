@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 
 /* =========================
    TYPES
@@ -39,24 +40,33 @@ type CurrentUser = {
 export default function ChatPage() {
   const router = useRouter();
 
-  const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const tokenRef = useRef<string>("");
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([])
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [text, setText] = useState("");
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [onlineCount, setOnlineCount] = useState(0);
 
+
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // 🔥 UPLOAD STATE
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageCaption, setImageCaption] = useState("");
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showEmojiPickerCaption, setShowEmojiPickerCaption] = useState(false);
 
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:9002";
@@ -97,6 +107,7 @@ export default function ChatPage() {
 
       socket.on("receive_message", (msg: Message) => {
         setMessages((prev: Message[]) => {
+          // Skip jika ID sudah ada
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
@@ -124,27 +135,8 @@ export default function ChatPage() {
   async function handleSend() {
     if (!text.trim() || !me) return;
 
-    const tempId = `temp-${Date.now()}`;
     const msgText = text;
     setText("");
-
-    setMessages((prev: Message[]) => [
-      ...prev,
-      {
-        id: tempId,
-        text: msgText,
-        image: null,
-        createdAt: new Date().toISOString(),
-        sender: { 
-          id: me.id, 
-          username: me.username, 
-          avatar: me.avatar 
-        },
-        pending: true,
-      },
-    ]);
-
-    scrollToBottom();
 
     await fetch(`${API_URL}/api/messages`, {
       method: "POST",
@@ -154,6 +146,21 @@ export default function ChatPage() {
       },
       body: JSON.stringify({ text: msgText }),
     });
+
+    // Backend akan broadcast via socket, jadi tidak perlu optimistic update
+  }
+
+  /* =========================
+     EMOJI PICKER
+  ========================= */
+  function handleEmojiClick(emojiData: EmojiClickData) {
+    setText((prev) => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
+  }
+
+  function handleEmojiClickCaption(emojiData: EmojiClickData) {
+    setImageCaption((prev) => prev + emojiData.emoji);
+    setShowEmojiPickerCaption(false);
   }
 
   /* =========================
@@ -171,7 +178,7 @@ export default function ChatPage() {
       const formData = new FormData();
       formData.append("image", file); // ⬅️ HARUS "image"
 
-      const res = await axios.post(
+      await axios.post(
         `${API_URL}/api/messages/upload`,
         formData,
         {
@@ -185,11 +192,7 @@ export default function ChatPage() {
         }
       );
 
-      // ⬇️ kirim message ke socket setelah upload sukses
-      socketRef.current?.emit("sendMessage", {
-        image: res.data.imageUrl,
-        text: "",
-      });
+      // Backend akan broadcast message via socket
     } catch (err) {
       console.error("Upload image error:", err);
       alert("Upload gambar gagal");
@@ -200,12 +203,53 @@ export default function ChatPage() {
     }
   }
 
+  function handleSelectImage(file: File) {
+    const preview = URL.createObjectURL(file);
+
+    setSelectedImage(file);
+    setImagePreview(preview);
+    setImageCaption("");
+    setShowImageDialog(true);
+  }
+
+  async function sendImageWithCaption() {
+    if (!selectedImage || !me) return;
+
+    setShowImageDialog(false);
+    const caption = imageCaption;
+    setImageCaption("");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", selectedImage);
+      if (caption) formData.append("text", caption);
+
+      await axios.post(
+        `${API_URL}/api/messages/upload`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${tokenRef.current}`,
+          },
+        }
+      );
+
+      // Backend akan broadcast message via socket (termasuk caption)
+    } catch (err) {
+      console.error("Upload image error:", err);
+      alert("Upload gambar gagal");
+    } finally {
+      setSelectedImage(null);
+      setImagePreview(null);
+    }
+  }
+
   /* =========================
      HELPERS
   ========================= */
   function scrollToBottom() {
     setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 50);
   }
 
@@ -242,189 +286,275 @@ export default function ChatPage() {
   }
 
   return (
-    <>
-      <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
-        <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
+  <>
+    <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
+      <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
 
-          {/* ================= HEADER ================= */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#101827]">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push("/profile")}
-                className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
-              >
-                {me?.avatar ? (
-                  <img src={me.avatar} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="font-bold">
-                    {me?.username?.charAt(0)}
-                  </span>
-                )}
-              </button>
-
-              <div>
-                <div className="font-semibold text-orange-400">
-                  Chat Room {me && `- ${me.username}`}
-                </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 text-[11px] sm:text-xs">
-                  {/* Online badge */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-ping" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-                    </span>
-
-                    <span className="text-yellow-100 font-semibold">
-                      Online: {onlineCount}
-                    </span>
-                  </div>
-                  <span className="hidden sm:inline text-gray-400">-</span>
-                  <span className="text-gray-400">
-                    Last Login: {formatLastLogin(me?.previousLogin)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* ===== GEAR ===== */}
-            <div className="relative">
-              <button
-                onClick={() => setMenuOpen((p: boolean) => !p)}
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20"
-              >
-                ⚙️
-              </button>
-
-              {menuOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-[#1f2937] rounded-xl shadow-lg overflow-hidden z-50">
-                  <button
-                    onClick={() => router.push("/profile")}
-                    className="block w-full text-left px-4 py-2 text-sm hover:bg-white/10"
-                  >
-                    Profile
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10"
-                  >
-                    Logout
-                  </button>
-                </div>
+        {/* ================= HEADER ================= */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#101827]">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/profile")}
+              className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
+            >
+              {me?.avatar ? (
+                <img src={me.avatar} className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-bold">
+                  {me?.username?.charAt(0)}
+                </span>
               )}
+            </button>
+
+            <div>
+              <div className="font-semibold text-orange-400">
+                Chat Room {me && `- ${me.username}`}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-green-400">● Online {onlineCount}</span>
+                <span className="text-gray-400">
+                  Last Login: {formatLastLogin(me?.previousLogin)}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* ================= MESSAGES ================= */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-            {messages.map((m) => {
-              const mine = isMine(m);
-              const imageUrl =
-                typeof m.image === "string" && m.image.startsWith("http")
-                  ? m.image
-                  : undefined;
+          {/* ===== GEAR ===== */}
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((p: boolean) => !p)}
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20"
+            >
+              ⚙️
+            </button>
 
-              return (
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-[#1f2937] rounded-xl shadow-lg z-50">
+                <button
+                  onClick={() => router.push("/profile")}
+                  className="block w-full text-left px-4 py-2 text-sm hover:bg-white/10"
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ================= MESSAGES ================= */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
+          {messages.map((m) => {
+            const isMe = m.sender.id === me?.id;
+
+            return (
+              <div
+                key={m.id}
+                className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+              >
+                {!isMe && (
+                  <img
+                    src={m.sender.avatar || "/avatar-default.png"}
+                    className="w-8 h-8 rounded-full mr-2 mt-1"
+                  />
+                )}
+
                 <div
-                  key={m.id}
-                  className={`flex items-start gap-2 ${
-                    mine ? "justify-end" : "justify-start"
+                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                    isMe
+                      ? "bg-blue-500 text-white"
+                      : "bg-[#1e293b] text-white"
                   }`}
                 >
-                  {!mine && (
-                    <div className="w-8 h-8 rounded-full bg-blue-600 overflow-hidden flex items-center justify-center text-xs font-bold">
-                      {m.sender.avatar ? (
-                        <img src={m.sender.avatar} className="w-full h-full object-cover" />
-                      ) : (
-                        m.sender.username[0]
-                      )}
-                    </div>
+                  <div className={`text-xs font-semibold mb-1 ${isMe ? "text-white/80" : "text-orange-400"}`}>
+                    {isMe ? "You" : m.sender.username}
+                  </div>
+
+                  {m.image && (
+                    <img
+                      src={m.image}
+                      className="rounded-lg mb-2 max-h-60 cursor-pointer"
+                      onClick={() => setPreviewImage(m.image || null)}
+                    />
                   )}
 
-                  <div
-                    className={`max-w-[75%] px-4 py-2 rounded-xl ${
-                      mine ? "bg-blue-600" : "bg-[#1f2937]"
-                    } ${m.pending ? "opacity-60" : ""}`}
-                  >
-                    {/* USERNAME / YOU */}
-                    <div
-                      className={`text-xs font-semibold mb-1 ${
-                        mine ? "text-right text-blue-300" : "text-blue-400"
-                      }`}
-                    >
-                      {mine ? "You" : m.sender.username}
-                    </div>
-                    {imageUrl && (
-                      <img
-                        src={imageUrl}
-                        onClick={() => setPreviewImage(imageUrl)}
-                        className="rounded-lg mb-2 max-h-60 cursor-pointer"
-                      />
-                    )}
+                  {m.text && <div>{m.text}</div>}
 
-                    {m.text && <div className="text-sm">{m.text}</div>}
-
-                    <div className="text-[10px] text-right opacity-70 mt-1">
-                      {formatTime(m.createdAt)}
-                    </div>
+                  <div className="text-[10px] text-right text-white/60 mt-1">
+                    {formatTime(m.createdAt)}
                   </div>
                 </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* ================= PREVIEW UPLOAD ================= */}
-          {previewUrl && (
-            <div className="px-3 pb-2">
-              <div className="relative w-32 h-32">
-                <img src={previewUrl} className="rounded-xl w-full h-full object-cover" />
-                {isUploading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
-                    <div className="w-12 h-12 rounded-full border-4 border-white/30 border-t-white animate-spin" />
-                  </div>
-                )}
               </div>
-            </div>
-          )}
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
 
-          {/* ================= INPUT ================= */}
-          <div className="p-3 border-t border-white/10">
-            <div className="flex items-center gap-2">
-              <div className="relative">
+        {/* ================= INPUT ================= */}
+        <div className="p-3 border-t border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1">
               <button
-                onClick={() => setShowPlusMenu((prev: boolean) => !prev)}
-                className="w-10 h-10 rounded-full bg-[#1f2937] hover:bg-[#374151] flex items-center justify-center text-xl"
+                onClick={() => {
+                  setShowPlusMenu((p) => !p);
+                  setShowEmojiPicker(false);
+                }}
+                className="w-9 h-9 rounded-full bg-white/10"
               >
                 +
               </button>
 
-              {/* DROPDOWN */}
               {showPlusMenu && (
-                <div className="absolute bottom-12 left-0 bg-[#111827] border border-white/10 rounded-lg shadow-lg w-44 z-50">
+                <div className="absolute bottom-14 left-2 bg-[#1f2937] rounded-xl shadow-lg z-50">
                   <button
                     onClick={() => {
                       setShowPlusMenu(false);
                       fileInputRef.current?.click();
                     }}
-                    className="w-full px-4 py-2 text-sm text-left hover:bg-white/10"
+                    className="px-4 py-2 text-sm hover:bg-white/10"
                   >
                     📷 Upload Picture
                   </button>
                 </div>
               )}
-            </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleSelectImage(file);
+                }}
+              />
 
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Type message..."
-                className="flex-1 bg-[#30374f] rounded-full px-4 h-12 outline-none text-sm"
+                className="flex-1 bg-transparent outline-none text-sm"
               />
 
               <button
-                onClick={handleSend}
-                className="w-12 h-12 rounded-full bg-orange-500"
+                onClick={() => {
+                  setShowEmojiPicker((p) => !p);
+                  setShowPlusMenu(false);
+                }}
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xl"
+              >
+                😊
+              </button>
+
+              {/* EMOJI PICKER */}
+              {showEmojiPicker && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowEmojiPicker(false)}
+                  />
+                  <div className="absolute bottom-16 right-2 z-50">
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      theme={Theme.DARK}
+                      width={320}
+                      height={400}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={handleSend}
+              className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center"
+            >
+              ➤
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* ================= IMAGE PREVIEW MODAL ================= */}
+    {previewImage && (
+      <div
+        className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
+        onClick={() => setPreviewImage(null)}
+      >
+        <img src={previewImage} className="max-w-[90%] max-h-[90%] rounded-xl" />
+      </div>
+    )}
+
+    {/* ================= IMAGE CAPTION DIALOG ================= */}
+    {showImageDialog && imagePreview && (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="bg-[#1f2937] rounded-2xl max-w-md w-full overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-white/10">
+            <span className="font-semibold">Send Image</span>
+            <button
+              onClick={() => {
+                setShowImageDialog(false);
+                setImagePreview(null);
+                setSelectedImage(null);
+                setImageCaption("");
+              }}
+              className="text-xl hover:text-red-400"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="bg-black flex justify-center">
+            <img src={imagePreview} className="max-h-[320px]" />
+          </div>
+
+          <div className="p-3">
+            <div className="relative flex gap-2 items-center">
+              <div className="relative flex-1 flex items-center bg-[#1e293b] rounded-full px-4 py-2">
+                <input
+                  value={imageCaption}
+                  onChange={(e) => setImageCaption(e.target.value)}
+                  placeholder="Add a message..."
+                  className="flex-1 bg-transparent outline-none text-sm text-white"
+                />
+
+                <button
+                  onClick={() => setShowEmojiPickerCaption((p) => !p)}
+                  className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-lg ml-2"
+                >
+                  😊
+                </button>
+
+                {/* EMOJI PICKER FOR CAPTION */}
+                {showEmojiPickerCaption && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowEmojiPickerCaption(false)}
+                    />
+                    <div className="absolute bottom-14 right-0 z-50">
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClickCaption}
+                        theme={Theme.DARK}
+                        width={300}
+                        height={380}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={sendImageWithCaption}
+                className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0"
               >
                 ➤
               </button>
@@ -432,28 +562,7 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          handleImageUpload(file);
-          e.target.value = ""; // reset biar bisa upload file sama lagi
-        }}
-      />
-
-      {/* ================= IMAGE MODAL ================= */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
-          onClick={() => setPreviewImage(null)}
-        >
-          <img src={previewImage} className="max-w-[90%] max-h-[90%] rounded-xl" />
-        </div>
-      )}
-    </>
-  );
+    )}
+  </>
+);
 }

@@ -102,6 +102,7 @@ export const uploadMessageImage = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const file = req.file;
+    const caption = req.body.text || null; // 🔥 Ambil caption dari FormData
 
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -120,7 +121,7 @@ export const uploadMessageImage = async (req: Request, res: Response) => {
     const msg = await prisma.messages.create({
       data: {
         senderId: user.id,
-        text: null,
+        text: caption, // 🔥 Simpan caption
         fileUrl: uploadResult.secure_url,
         fileName: file.originalname,
         fileType: file.mimetype,
