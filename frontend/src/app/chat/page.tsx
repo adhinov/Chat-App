@@ -257,6 +257,18 @@ export default function ChatPage() {
     return msg.sender.id === me?.id;
   }
 
+  function getImageUrl(imageUrl: string | null | undefined): string | null {
+    if (!imageUrl) return null;
+
+    // Jika sudah full URL (Cloudinary atau https), return langsung
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+
+    // Jika relative path, convert ke backend URL
+    return `${API_URL}/${imageUrl}`;
+  }
+
   function formatTime(date: string) {
     return new Date(date).toLocaleTimeString("id-ID", {
       hour: "2-digit",
@@ -298,7 +310,7 @@ export default function ChatPage() {
               className="w-10 h-10 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center"
             >
               {me?.avatar ? (
-                <img src={me.avatar} className="w-full h-full object-cover" />
+                <img src={getImageUrl(me.avatar) || undefined} className="w-full h-full object-cover" />
               ) : (
                 <span className="font-bold">
                   {me?.username?.charAt(0)}
@@ -359,10 +371,19 @@ export default function ChatPage() {
                 className={`flex ${isMe ? "justify-end" : "justify-start"}`}
               >
                 {!isMe && (
-                  <img
-                    src={m.sender.avatar || "/avatar-default.png"}
-                    className="w-8 h-8 rounded-full mr-2 mt-1"
-                  />
+                  <div className="w-8 h-8 rounded-full mr-2 mt-1 flex items-center justify-center bg-[#2563eb] flex-shrink-0 overflow-hidden">
+                    {m.sender.avatar ? (
+                      <img
+                        src={getImageUrl(m.sender.avatar) || undefined}
+                        className="w-full h-full object-cover"
+                        alt={m.sender.username}
+                      />
+                    ) : (
+                      <span className="text-xs font-bold text-white">
+                        {m.sender.username?.charAt(0).toUpperCase() || "?"}
+                      </span>
+                    )}
+                  </div>
                 )}
 
                 <div
@@ -378,9 +399,9 @@ export default function ChatPage() {
 
                   {m.image && (
                     <img
-                      src={m.image}
+                      src={getImageUrl(m.image) || undefined}
                       className="rounded-lg mb-2 max-h-60 cursor-pointer"
-                      onClick={() => setPreviewImage(m.image || null)}
+                      onClick={() => setPreviewImage(getImageUrl(m.image))}
                     />
                   )}
 
@@ -489,7 +510,7 @@ export default function ChatPage() {
         className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
         onClick={() => setPreviewImage(null)}
       >
-        <img src={previewImage} className="max-w-[90%] max-h-[90%] rounded-xl" />
+        <img src={getImageUrl(previewImage) || undefined} className="max-w-[90%] max-h-[90%] rounded-xl" />
       </div>
     )}
 
@@ -498,7 +519,7 @@ export default function ChatPage() {
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
         <div className="bg-[#1f2937] rounded-2xl max-w-md w-full overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <span className="font-semibold">Send Image</span>
+            <span className="font-semibold text-white">Send Image</span>
             <button
               onClick={() => {
                 setShowImageDialog(false);

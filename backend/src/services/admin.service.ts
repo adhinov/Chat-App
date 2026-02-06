@@ -1,4 +1,4 @@
-import prisma from '../config/prisma';
+import prisma from '../lib/prisma';
 
 export class AdminService {
   static async getAllUsers() {

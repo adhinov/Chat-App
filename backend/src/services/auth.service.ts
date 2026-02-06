@@ -1,7 +1,7 @@
 // ganti import
 import * as jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import prisma from "../config/prisma";
+import prisma from "../lib/prisma";
 
 const JWT_SECRET = (process.env.JWT_SECRET || "your_jwt_secret_key") as jwt.Secret;
 const JWT_EXPIRE = process.env.JWT_EXPIRE || "24h";

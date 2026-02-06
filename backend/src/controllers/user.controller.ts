@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import prisma from "../lib/prisma";
 import cloudinary from "../config/cloudinary";
 import streamifier from "streamifier";
 import { Prisma } from "@prisma/client";
