@@ -89,10 +89,24 @@ html, body {
   margin: 0;
   padding: 0;
   overscroll-behavior-y: none;
+  overflow-x: hidden;
 }
 
 body {
   background: #0f1724 !important;
+}
+
+/* Hide Next.js dev indicator bubble */
+#__next-build-watcher,
+[data-nextjs-dev-indicator] {
+  display: none !important;
+}
+
+/* Extra: hide dev overlay portal that contains the N button */
+nextjs-portal,
+#__next-dev-overlay,
+#__next-dev-overlay-backdrop {
+  display: none !important;
 }
 
 @supports (padding-bottom: env(safe-area-inset-bottom)) {

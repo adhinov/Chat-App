@@ -70,6 +70,9 @@ const nextConfig: NextConfig = {
 
   // 🔥 DISABLE FEATURES YOU DON'T NEED IN DEV
   swcMinify: true, // Use SWC minifier (faster, less memory than Terser)
+  devIndicators: {
+    buildActivity: false,
+  },
   
   // Reduce overhead in development
   productionBrowserSourceMaps: false,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -33,6 +33,84 @@ type CurrentUser = {
   role: string;
   previousLogin?: string | null;
 };
+
+type MessageListProps = {
+  messages: Message[];
+  me: CurrentUser | null;
+  getImageUrl: (imageUrl: string | null | undefined) => string | null;
+  formatTime: (date: string) => string;
+  onPreviewImage: (url: string) => void;
+};
+
+const MessageList = React.memo(function MessageList({
+  messages,
+  me,
+  getImageUrl,
+  formatTime,
+  onPreviewImage,
+}: MessageListProps) {
+  return (
+    <>
+      {messages.map((m) => {
+        const isMe = m.sender.id === me?.id;
+
+        return (
+          <div
+            key={m.id}
+            className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+          >
+            {!isMe && (
+              <div className="w-8 h-8 rounded-full mr-2 mt-1 flex items-center justify-center bg-[#2563eb] flex-shrink-0 overflow-hidden">
+                {m.sender.avatar ? (
+                  <img
+                    src={getImageUrl(m.sender.avatar) || undefined}
+                    className="w-full h-full object-cover"
+                    alt={m.sender.username}
+                  />
+                ) : (
+                  <span className="text-xs font-bold text-white">
+                    {m.sender.username?.charAt(0).toUpperCase() || "?"}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div
+              className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                isMe ? "bg-blue-500 text-white" : "bg-[#1e293b] text-white"
+              }`}
+            >
+              <div
+                className={`text-xs font-semibold mb-1 ${
+                  isMe ? "text-white/80" : "text-orange-400"
+                }`}
+              >
+                {isMe ? "You" : m.sender.username}
+              </div>
+
+              {m.image && (
+                <img
+                  src={getImageUrl(m.image) || undefined}
+                  className="rounded-lg mb-2 max-h-60 cursor-pointer"
+                  onClick={() => {
+                    const url = getImageUrl(m.image);
+                    if (url) onPreviewImage(url);
+                  }}
+                />
+              )}
+
+              {m.text && <div>{m.text}</div>}
+
+              <div className="text-[10px] text-right text-white/60 mt-1">
+                {formatTime(m.createdAt)}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+});
 
 /* =========================
    COMPONENT
@@ -257,24 +335,40 @@ export default function ChatPage() {
     return msg.sender.id === me?.id;
   }
 
-  function getImageUrl(imageUrl: string | null | undefined): string | null {
-    if (!imageUrl) return null;
+  const getImageUrl = useCallback(
+    (imageUrl: string | null | undefined): string | null => {
+      if (!imageUrl) return null;
 
-    // Jika sudah full URL (Cloudinary atau https), return langsung
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return imageUrl;
-    }
+      // Jika sudah full URL (Cloudinary atau https), return langsung
+      if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+        return imageUrl;
+      }
 
-    // Jika relative path, convert ke backend URL
-    return `${API_URL}/${imageUrl}`;
-  }
+      // Jika relative path, convert ke backend URL
+      return `${API_URL}/${imageUrl}`;
+    },
+    [API_URL]
+  );
 
-  function formatTime(date: string) {
+  const formatTime = useCallback((date: string) => {
     return new Date(date).toLocaleTimeString("id-ID", {
       hour: "2-digit",
       minute: "2-digit",
     });
-  }
+  }, []);
+
+  const messageList = useMemo(
+    () => (
+      <MessageList
+        messages={messages}
+        me={me}
+        getImageUrl={getImageUrl}
+        formatTime={formatTime}
+        onPreviewImage={(url) => setPreviewImage(url)}
+      />
+    ),
+    [messages, me, getImageUrl, formatTime]
+  );
 
   /* =========================
      RENDER
@@ -299,11 +393,11 @@ export default function ChatPage() {
 
   return (
   <>
-    <div className="h-[100dvh] flex justify-center bg-[#0f1724] text-white">
-      <div className="flex flex-col w-full sm:max-w-xl bg-[#101827]">
+    <div className="h-[100dvh] min-h-[100svh] flex justify-center bg-[#0f1724] text-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] overflow-x-hidden">
+      <div className="flex flex-col w-full max-w-full sm:max-w-xl bg-[#101827] overflow-x-hidden">
 
         {/* ================= HEADER ================= */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#101827]">
+        <div className="flex items-center justify-between px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] border-b border-white/10 bg-[#101827]">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/profile")}
@@ -361,72 +455,21 @@ export default function ChatPage() {
         </div>
 
         {/* ================= MESSAGES ================= */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
-          {messages.map((m) => {
-            const isMe = m.sender.id === me?.id;
-
-            return (
-              <div
-                key={m.id}
-                className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-              >
-                {!isMe && (
-                  <div className="w-8 h-8 rounded-full mr-2 mt-1 flex items-center justify-center bg-[#2563eb] flex-shrink-0 overflow-hidden">
-                    {m.sender.avatar ? (
-                      <img
-                        src={getImageUrl(m.sender.avatar) || undefined}
-                        className="w-full h-full object-cover"
-                        alt={m.sender.username}
-                      />
-                    ) : (
-                      <span className="text-xs font-bold text-white">
-                        {m.sender.username?.charAt(0).toUpperCase() || "?"}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                    isMe
-                      ? "bg-blue-500 text-white"
-                      : "bg-[#1e293b] text-white"
-                  }`}
-                >
-                  <div className={`text-xs font-semibold mb-1 ${isMe ? "text-white/80" : "text-orange-400"}`}>
-                    {isMe ? "You" : m.sender.username}
-                  </div>
-
-                  {m.image && (
-                    <img
-                      src={getImageUrl(m.image) || undefined}
-                      className="rounded-lg mb-2 max-h-60 cursor-pointer"
-                      onClick={() => setPreviewImage(getImageUrl(m.image))}
-                    />
-                  )}
-
-                  {m.text && <div>{m.text}</div>}
-
-                  <div className="text-[10px] text-right text-white/60 mt-1">
-                    {formatTime(m.createdAt)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-3">
+          {messageList}
           <div ref={messagesEndRef} />
         </div>
 
         {/* ================= INPUT ================= */}
-        <div className="p-3 border-t border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1">
+        <div className="p-3 border-t border-white/10 pb-[calc(1rem+env(safe-area-inset-bottom))] pr-[calc(0.75rem+env(safe-area-inset-right))] pl-[calc(0.75rem+env(safe-area-inset-left))] bg-[#101827] sticky bottom-0">
+          <div className="flex items-center gap-2 w-full min-w-0">
+            <div className="relative flex items-center gap-2 bg-[#30374f] rounded-full px-2 h-12 flex-1 min-w-0">
               <button
                 onClick={() => {
                   setShowPlusMenu((p) => !p);
                   setShowEmojiPicker(false);
                 }}
-                className="w-9 h-9 rounded-full bg-white/10"
+                className="w-9 h-9 rounded-full bg-transparent"
               >
                 +
               </button>
@@ -469,7 +512,7 @@ export default function ChatPage() {
                   setShowEmojiPicker((p) => !p);
                   setShowPlusMenu(false);
                 }}
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-xl"
+                className="w-9 h-9 rounded-full bg-transparent hover:bg-white/10 flex items-center justify-center text-xl"
               >
                 😊
               </button>
@@ -517,7 +560,7 @@ export default function ChatPage() {
     {/* ================= IMAGE CAPTION DIALOG ================= */}
     {showImageDialog && imagePreview && (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-        <div className="bg-[#1f2937] rounded-2xl max-w-md w-full overflow-hidden">
+          <div className="bg-[#1f2937] rounded-2xl max-w-md w-full overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <span className="font-semibold text-white">Send Image</span>
             <button
@@ -537,9 +580,9 @@ export default function ChatPage() {
             <img src={imagePreview} className="max-h-[320px]" />
           </div>
 
-          <div className="p-3">
-            <div className="relative flex gap-2 items-center">
-              <div className="relative flex-1 flex items-center bg-[#1e293b] rounded-full px-4 py-2">
+          <div className="p-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <div className="relative flex gap-2 items-center w-full min-w-0">
+              <div className="relative flex-1 flex items-center bg-[#1e293b] rounded-full px-4 py-2 min-w-0">
                 <input
                   value={imageCaption}
                   onChange={(e) => setImageCaption(e.target.value)}
@@ -575,7 +618,7 @@ export default function ChatPage() {
 
               <button
                 onClick={sendImageWithCaption}
-                className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0"
+                className="w-10 h-10 min-w-10 min-h-10 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0"
               >
                 ➤
               </button>
