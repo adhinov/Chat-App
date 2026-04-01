@@ -5,6 +5,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Neon uses standard PostgreSQL, no special configuration needed
+  directUrl = env("DIRECT_DATABASE_URL") // Optional: for migrations
 }
 
 model User {
@@ -33,11 +35,14 @@ model Messages {
   createdAt DateTime @default(now())
 
   // relation
-  sender    User     @relation(fields: [senderId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   // === Upload file support ===
   fileUrl   String?
   fileName  String?
   fileType  String?
   fileSize  Int?
+
+  @@index([senderId])
+  @@index([createdAt])
 }

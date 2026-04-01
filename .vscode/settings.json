@@ -2,7 +2,7 @@
   // ... setting lain yang sudah ada, JANGAN DIHAPUS ...
   
   // Tambahkan atau edit yang ini:
-  "files.autoSave": "onFocusChange",
+  "files.autoSave": "off",
   "editor.minimap.enabled": false,
   "editor.codeLens": false,
   "editor.formatOnSave": false,

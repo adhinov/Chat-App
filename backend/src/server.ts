@@ -11,6 +11,10 @@ import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 import messageRoutes from "./routes/messageRoutes";
 
+// 🔥 NEON DATABASE CONNECTION
+import { checkDatabaseConnection } from "./lib/db-utils";
+import { startNeonKeepalive } from "./middleware/neon-connection.middleware";
+
 // ================================
 // TYPES
 // ================================
@@ -126,11 +130,57 @@ app.get("/", (_req, res) => {
 });
 
 // ================================
+// NEON DATABASE INITIALIZATION
+// ================================
+async function initializeDatabase() {
+  console.log("🔌 Connecting to Neon database...");
+  
+  try {
+    const isConnected = await checkDatabaseConnection();
+    
+    if (isConnected) {
+      console.log("✅ Neon database connected successfully!");
+      
+      // 🏓 Optional: Start keepalive to prevent auto-suspend
+      // Uncomment the line below if you want to keep Neon awake
+      // startNeonKeepalive(4 * 60 * 1000); // Ping every 4 minutes
+      
+      return true;
+    } else {
+      console.error("❌ Failed to connect to Neon database");
+      return false;
+    }
+  } catch (error) {
+    console.error("❌ Database initialization error:", error);
+    return false;
+  }
+}
+
+// ================================
 // START SERVER
 // ================================
 const PORT = process.env.PORT || 9002;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+
+async function startServer() {
+  // Initialize Neon database connection first
+  const dbConnected = await initializeDatabase();
+  
+  if (!dbConnected) {
+    console.error("⚠️  Starting server without database connection");
+    console.error("⚠️  Some features may not work properly");
+  }
+  
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`🌐 CORS Origins: ${allowedOrigins.join(", ") || "Not configured"}`);
+  });
+}
+
+// Start the server
+startServer().catch((error) => {
+  console.error("❌ Failed to start server:", error);
+  process.exit(1);
 });
 
 export default app;
