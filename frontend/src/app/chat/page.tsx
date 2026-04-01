@@ -495,7 +495,7 @@ export default function ChatPage() {
 
             <button
               onClick={handleSend}
-              className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center"
+              className="w-12 h-12 min-w-12 min-h-12 rounded-full bg-orange-500 flex items-center justify-center shrink-0"
             >
               ➤
             </button>
