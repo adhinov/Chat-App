@@ -242,7 +242,7 @@ export default function ChatPage() {
   }
 
   /* =========================
-   SEND IMAGE (WITH PROGRESS)
+   SEND IMAGE WITH PROGRESS
   ========================= */
   async function handleImageUpload(file: File) {
     if (!me || !tokenRef.current) return;
