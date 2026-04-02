@@ -101,6 +101,12 @@ const MessageList = React.memo(function MessageList({
 
               {m.text && <div>{m.text}</div>}
 
+              {m.pending && (
+                <div className="text-[10px] text-white/70 italic mt-1">
+                  sending...
+                </div>
+              )}
+
               <div className="text-[10px] text-right text-white/60 mt-1">
                 {formatTime(m.createdAt)}
               </div>
@@ -187,6 +193,21 @@ export default function ChatPage() {
         setMessages((prev: Message[]) => {
           // Skip jika ID sudah ada
           if (prev.some((m) => m.id === msg.id)) return prev;
+
+          // Replace optimistic pending message if it matches
+          const pendingIndex = prev.findIndex(
+            (m) =>
+              m.pending &&
+              m.sender.id === msg.sender.id &&
+              (m.text ?? "") === (msg.text ?? "") &&
+              ((m.image && msg.image) || (!m.image && !msg.image))
+          );
+          if (pendingIndex !== -1) {
+            const next = prev.slice();
+            next[pendingIndex] = msg;
+            return next;
+          }
+
           return [...prev, msg];
         });
         scrollToBottom();
@@ -216,14 +237,38 @@ export default function ChatPage() {
     const msgText = text;
     setText("");
 
-    await fetch(`${API_URL}/api/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${tokenRef.current}`,
-      },
-      body: JSON.stringify({ text: msgText }),
-    });
+    // Optimistic update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      text: msgText,
+      image: null,
+      createdAt: new Date().toISOString(),
+      sender: me,
+      pending: true,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    scrollToBottom();
+
+    try {
+      const res = await fetch(`${API_URL}/api/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenRef.current}`,
+        },
+        body: JSON.stringify({ text: msgText }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to send message");
+      }
+    } catch (err) {
+      // Rollback optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setText(msgText);
+      console.error("Send message error:", err);
+    }
 
     // Backend akan broadcast via socket, jadi tidak perlu optimistic update
   }
@@ -251,6 +296,19 @@ export default function ChatPage() {
     setPreviewUrl(preview);
     setIsUploading(true);
     setUploadProgress(0);
+    const tempId = `temp-img-${Date.now()}`;
+
+    // Optimistic image message (no caption)
+    const optimisticMsg: Message = {
+      id: tempId,
+      text: null,
+      image: preview,
+      createdAt: new Date().toISOString(),
+      sender: me,
+      pending: true,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    scrollToBottom();
 
     try {
       const formData = new FormData();
@@ -273,6 +331,8 @@ export default function ChatPage() {
       // Backend akan broadcast message via socket
     } catch (err) {
       console.error("Upload image error:", err);
+      // Rollback optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       alert("Upload gambar gagal");
     } finally {
       setIsUploading(false);
@@ -296,6 +356,20 @@ export default function ChatPage() {
     setShowImageDialog(false);
     const caption = imageCaption;
     setImageCaption("");
+    const preview = imagePreview || URL.createObjectURL(selectedImage);
+    const tempId = `temp-img-${Date.now()}`;
+
+    // Optimistic image message (with caption)
+    const optimisticMsg: Message = {
+      id: tempId,
+      text: caption || null,
+      image: preview,
+      createdAt: new Date().toISOString(),
+      sender: me,
+      pending: true,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    scrollToBottom();
 
     try {
       const formData = new FormData();
@@ -315,6 +389,8 @@ export default function ChatPage() {
       // Backend akan broadcast message via socket (termasuk caption)
     } catch (err) {
       console.error("Upload image error:", err);
+      // Rollback optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       alert("Upload gambar gagal");
     } finally {
       setSelectedImage(null);
