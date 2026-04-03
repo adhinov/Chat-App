@@ -77,12 +77,12 @@ const MessageList = React.memo(function MessageList({
 
             <div
               className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                isMe ? "bg-blue-500 text-white" : "bg-[#1e293b] text-white"
+                isMe ? "bg-orange-500 text-black" : "bg-[#1e293b] text-white"
               }`}
             >
               <div
                 className={`text-xs font-semibold mb-1 ${
-                  isMe ? "text-white/80" : "text-orange-400"
+                  isMe ? "text-black/70" : "text-orange-400"
                 }`}
               >
                 {isMe ? "You" : m.sender.username}
